@@ -1,4 +1,5 @@
 from uuid import UUID
+from datetime import date
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Annotated
@@ -36,7 +37,7 @@ class Affiliated_University(BaseModel):
     affiliated_with:str
 
 class Payment(BaseModel):
-    date:str
+    date:date
     type:str
     bank:str
     branch:str
@@ -51,7 +52,8 @@ class New_student(BaseModel):
     email:str
     OL_path:str
     AL_path:str
-    date:str
+    date:date
+
 
 class Student(BaseModel):
     student_id:str
@@ -136,3 +138,28 @@ def create_CourseSemesterProgram(program_id:UUID,semester_id:str,course_id:str,d
     db.refresh(db_SCP)
 
     return db_SCP
+
+@app.post("/register_student/{program_id}")
+def register_new_student(program_id:UUID,new_student: New_student, payment: Payment, db: db_dependency):
+    program = db.query(models.Program).filter(models.Program.program_id == program_id).first()
+    if not program:
+        raise HTTPException(status_code=404, detail="Program not found")
+    
+    db_payment = models.Payment(**payment.dict())
+    db.add(db_payment)
+    db.commit()
+    db.refresh(db_payment)
+    
+    # Create new student record
+    db_new_student = models.New_student(payment_id = db_payment.payment_id,program_id=program.program_id,**new_student.dict())
+    db.add(db_new_student)
+    db.commit()
+    db.refresh(db_new_student)
+    
+
+@app.get("/admin/new_students")
+def get_student_details(db: db_dependency):
+    db_new_student = db.query(models.New_student).all()
+    if db_new_student is None:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return db_new_student
