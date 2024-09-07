@@ -75,3 +75,18 @@ class Course_semester_program(Base):
     course_id=Column(String, ForeignKey("course.course_id"),index=True,primary_key=True)
     semester_id=Column(String, ForeignKey("semester.semester_id"),index=True,primary_key=True)
 
+#Lecturer models
+
+class Lecturer(Base):
+    __tablename__ = 'lecturer'
+    lecturer_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
+    lecturer_name=Column(String,index=True)
+    lecturer_nic=Column(String,index=True)
+    lecturer_phone=Column(String,index=True)
+    lecturer_email=Column(String,index=True)
+    lecturer_password=Column(String,index=True)
+
+
+
+
+

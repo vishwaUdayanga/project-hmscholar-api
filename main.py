@@ -1,14 +1,29 @@
 from uuid import UUID
 from datetime import date
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, status
 from pydantic import BaseModel
 from typing import List, Annotated
 import models
 from database import engine, SessionLocal
 from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
+from jose import JWTError, jwt
+# from passlib.context import CryptContext
+import os
+from dotenv import load_dotenv
+
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 models.Base.metadata.create_all(bind=engine)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"], 
+    allow_credentials=True,
+    allow_methods=["*"],  
+    allow_headers=["*"], 
+)
 
 class Admin(BaseModel):
     admin_name: str
@@ -163,3 +178,70 @@ def get_student_details(db: db_dependency):
     if db_new_student is None:
         raise HTTPException(status_code=404, detail="Student not found")
     return db_new_student
+
+
+#Lecturer
+
+#Lecturer utils
+
+# pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# def verify_password(plain_password, hashed_password):
+#     return pwd_context.verify(plain_password, hashed_password)
+
+# def get_password_hash(password):
+#     return pwd_context.hash(password)
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=30)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, os.getenv('SECRET_KEY'), algorithm=os.getenv('ALGORITHM'))
+    return encoded_jwt
+
+def decode_access_token(token: str):
+    try:
+        payload = jwt.decode(token, os.getenv('SECRET_KEY'), algorithms=[os.getenv('ALGORITHM')])
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+#classes
+
+class Lecturer(BaseModel):
+    lecturer_name: str
+    lecturer_nic: str
+    lecturer_phone: str
+    lecturer_email: str
+    lecturer_password: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+#End points
+
+@app.post("/lecturer/login")
+def login(request: LoginRequest, db: Session = Depends(get_db)):
+    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_email == request.email).first()
+
+    if not lecturer or not request.password == lecturer.lecturer_password:
+        raise HTTPException(status_code=400, detail="Incorrect username or password")
+
+    access_token = create_access_token(data={"sub": lecturer.lecturer_email})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+#Admin endpoints
+
+@app.post("/admin/create_lecturer")
+def create_lecturer(lecturer: Lecturer, db: Session = Depends(get_db)):
+    lecturer = models.Lecturer(**lecturer.dict())
+    db.add(lecturer)
+    db.commit()
+    db.refresh(lecturer)
+    return lecturer
