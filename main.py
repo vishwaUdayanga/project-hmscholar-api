@@ -33,13 +33,11 @@ class Admin(BaseModel):
     admin_email:str
 
 class Semester(BaseModel):
-    semester_id:str
     year: int
     status:int
     semester:int
 
 class Course(BaseModel):
-    course_id:str
     course_name: str
     enrollment_key:str
     course_description:str
@@ -223,6 +221,23 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
+class LecturerAssignedFor(BaseModel):
+    course_id: UUID
+    semester_id: UUID
+    program_id: UUID
+    lecturer_id: UUID
+
+class CourseResponse(BaseModel):
+    course_name: str
+    year: int
+    enrollment_key: str
+    semester: int
+    lecturer_name: str
+
+class LecturerResponse(BaseModel):
+    id: UUID
+    name: str
+
 #End points
 
 @app.post("/lecturer/login")
@@ -235,6 +250,67 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     access_token = create_access_token(data={"sub": lecturer.lecturer_email})
     return {"access_token": access_token, "token_type": "bearer"}
 
+@app.post("/add_courses")
+def create_admin(new_admin: Course, db: db_dependency):
+    db_course = models.Course(**new_admin.dict())
+    db.add(db_course)
+    db.commit()
+    db.refresh(db_course)
+
+@app.post("/add_programs")
+def create_admin(new_admin: Program, db: db_dependency):
+    db_program = models.Program(**new_admin.dict())
+    db.add(db_program)
+    db.commit()
+    db.refresh(db_program)
+
+@app.post("/add_semesters")
+def create_admin(new_admin: Semester, db: db_dependency):
+    db_semester = models.Semester(**new_admin.dict())
+    db.add(db_semester)
+    db.commit()
+    db.refresh(db_semester)
+
+@app.post("/add_lecturer_assigned_for")
+def create_admin(new_admin: LecturerAssignedFor, db: db_dependency):
+    db_lecturer_assigned_for = models.Lecturer_assigned_for(**new_admin.dict())
+    db.add(db_lecturer_assigned_for)
+    db.commit()
+    db.refresh(db_lecturer_assigned_for)
+
+@app.get("/lecturer/{lecturer_id}/courses", response_model=List[CourseResponse])
+def get_assigned_courses(lecturer_id: UUID, db: Session = Depends(get_db)):
+    assigned_courses = (
+        db.query(models.Lecturer_assigned_for, models.Lecturer, models.Course, models.Semester)
+        .join(models.Course, models.Course.course_id == models.Lecturer_assigned_for.course_id)
+        .join(models.Semester, models.Semester.semester_id == models.Lecturer_assigned_for.semester_id)
+        .filter(models.Lecturer_assigned_for.lecturer_id == lecturer_id)
+        .all()
+    )
+
+    if not assigned_courses:
+        raise HTTPException(status_code=404, detail="Courses not found for this lecturer")
+    
+    response = []
+    for assignment in assigned_courses: 
+        response.append(
+            CourseResponse(
+                course_name=assignment.Course.course_name,
+                year=assignment.Semester.year,
+                enrollment_key=assignment.Course.enrollment_key,
+                semester=assignment.Semester.semester,
+                lecturer_name=assignment.Lecturer.lecturer_name
+            )
+        )
+
+    return response
+
+@app.get("/lecturer/by-email/{email}", response_model=LecturerResponse)
+def get_lecturer_by_email(email: str, db: Session = Depends(get_db)):
+    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_email == email).first()
+    if lecturer is None:
+        raise HTTPException(status_code=404, detail="Lecturer not found")
+    return LecturerResponse(id=lecturer.lecturer_id, name=lecturer.lecturer_name)
 
 #Admin endpoints
 

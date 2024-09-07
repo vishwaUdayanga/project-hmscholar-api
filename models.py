@@ -14,14 +14,14 @@ class Admin(Base):
 
 class Semester(Base):
     __tablename__ = 'semester'
-    semester_id=Column(String,index=True,primary_key=True)
+    semester_id=Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     year=Column(Integer,index=True)
     status=Column(Integer,index=True)
     semester=Column(Integer,index=True)
 
 class Course(Base):
     __tablename__ = 'course'
-    course_id=Column(String,index=True,primary_key=True)
+    course_id=Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     course_name=Column(String,index=True)
     enrollment_key=Column(String,index=True)
     course_description=Column(String,index=True)
@@ -85,6 +85,13 @@ class Lecturer(Base):
     lecturer_phone=Column(String,index=True)
     lecturer_email=Column(String,index=True)
     lecturer_password=Column(String,index=True)
+
+class Lecturer_assigned_for (Base):
+    __tablename__ = ' lecturer_assigned_for'
+    course_id=Column(String, ForeignKey("course.course_id"),index=True,primary_key=True)
+    semester_id=Column(String, ForeignKey("semester.semester_id"),index=True,primary_key=True)
+    program_id=Column(UUID, ForeignKey("program.program_id"),index=True,primary_key=True)
+    lecturer_id=Column(UUID, ForeignKey("lecturer.lecturer_id"),index=True,primary_key=True)
 
 
 
