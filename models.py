@@ -93,6 +93,20 @@ class Lecturer_assigned_for (Base):
     program_id=Column(UUID, ForeignKey("program.program_id"),index=True,primary_key=True)
     lecturer_id=Column(UUID, ForeignKey("lecturer.lecturer_id"),index=True,primary_key=True)
 
+class Section(Base):
+    __tablename__ = 'section'
+    section_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
+    section_name=Column(String,index=True)
+    section_description=Column(String,index=True)
+    course_id=Column(UUID, ForeignKey("course.course_id"),index=True)
+
+class Course_announcement(Base):
+    __tablename__ = 'course_announcement'
+    announcement_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
+    announcement_title=Column(String,index=True)
+    announcement_description=Column(String,index=True)
+    course_id=Column(UUID, ForeignKey("course.course_id"),index=True)
+
 
 
 

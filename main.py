@@ -242,6 +242,41 @@ class LecturerResponse(BaseModel):
 class CourseNameResponse(BaseModel):
     course_name: str
 
+class SectionResponse(BaseModel):
+    section_id: UUID
+    section_name: str
+    section_description: str
+
+class Section(BaseModel):
+    section_name: str
+    section_description: str
+    course_id: UUID
+
+class SectionResponseWithCourse(BaseModel):
+    section_id: UUID
+    section_name: str
+    section_description: str
+    course_id: UUID
+
+class SectionEdit(BaseModel):
+    section_name: str
+    section_description: str
+
+class Course_announcement(BaseModel):
+    announcement_title: str
+    announcement_description: str
+    course_id: UUID
+
+class Course_announcement_edit(BaseModel):
+    announcement_title: str
+    announcement_description: str
+
+class Course_announcement_response(BaseModel):
+    announcement_id: UUID
+    announcement_title: str
+    announcement_description: str
+    course_id: UUID
+
 #Lecturer end points
 
 @app.post("/lecturer/login")
@@ -324,7 +359,148 @@ def get_course_name(course_id: UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Course not found")
     return course.course_name
 
+@app.post("/add_section")
+def create_section(new_section: Section, db: db_dependency):
+    db_section = models.Section(**new_section.dict())
+    db.add(db_section)
+    db.commit()
+    db.refresh(db_section)
+
+@app.get("/sections/{course_id}")
+def get_sections(course_id: UUID, db: Session = Depends(get_db)):
+    sections = db.query(models.Section).filter(models.Section.course_id == course_id).all()
+    if not sections:
+        raise HTTPException(status_code=404, detail="Sections not found for this course")
+    
+    response = []
+    for section in sections:
+        response.append(
+            SectionResponse(
+                section_id=section.section_id,
+                section_name=section.section_name,
+                section_description=section.section_description
+            )
+        )
+
+    return response
+
+@app.get("/one-section/{section_id}") 
+def get_section(section_id: UUID, db: Session = Depends(get_db)):
+    section = db.query(models.Section).filter(models.Section.section_id == section_id).first()
+    if section is None:
+        raise HTTPException(status_code=404, detail="Section not found")
+    return SectionResponseWithCourse(
+        section_id=section.section_id,
+        section_name=section.section_name,
+        section_description=section.section_description,
+        course_id=section.course_id
+    )
+
+@app.put("/edit-section/{section_id}")
+def edit_section(section_id: UUID, new_section: SectionEdit, db: db_dependency):
+    section = db.query(models.Section).filter(models.Section.section_id == section_id).first()
+    if section is None:
+        raise HTTPException(status_code=404, detail="Section not found")
+    
+    section.section_name = new_section.section_name
+    section.section_description = new_section.section_description
+    db.commit()
+    db.refresh(section)
+
+    return section
+
+@app.delete("/delete-section/{section_id}")
+def delete_section(section_id: UUID, db: db_dependency):
+    section = db.query(models.Section).filter(models.Section.section_id == section_id).first()
+    if section is None:
+        raise HTTPException(status_code=404, detail="Section not found")
+    
+    db.delete(section)
+    db.commit()
+    return {"message": "Section deleted successfully"}
+
+@app.post("/course/add_announcement")
+def add_announcement(new_announcement: Course_announcement, db: db_dependency):
+    db_announcement = models.Course_announcement(**new_announcement.dict())
+    db.add(db_announcement)
+    db.commit()
+    db.refresh(db_announcement)
+
+@app.get("/course/announcements/{course_id}")
+def get_announcements(course_id: UUID, db: Session = Depends(get_db)):
+    announcements = db.query(models.Course_announcement).filter(models.Course_announcement.course_id == course_id).all()
+    if not announcements:
+        raise HTTPException(status_code=404, detail="Announcements not found for this course")
+    
+    response = []
+    for announcement in announcements:
+        response.append(
+            Course_announcement_response(
+                announcement_id=announcement.announcement_id,
+                announcement_title=announcement.announcement_title,
+                announcement_description=announcement.announcement_description,
+                course_id=announcement.course_id
+            )
+        )
+
+    return response
+
+@app.get("/course/one-announcement/{announcement_id}")
+def get_announcement(announcement_id: UUID, db: Session = Depends(get_db)):
+    announcement = db.query(models.Course_announcement).filter(models.Course_announcement.announcement_id == announcement_id).first()
+    if announcement is None:
+        raise HTTPException(status_code=404, detail="Announcement not found")
+    return Course_announcement_response(
+        announcement_id=announcement.announcement_id,
+        announcement_title=announcement.announcement_title,
+        announcement_description=announcement.announcement_description,
+        course_id=announcement.course_id
+    )
+
+@app.put("/course/edit-announcement/{announcement_id}")
+def edit_announcement(announcement_id: UUID, new_announcement: Course_announcement_edit, db: db_dependency):
+    announcement = db.query(models.Course_announcement).filter(models.Course_announcement.announcement_id == announcement_id).first()
+    if announcement is None:
+        raise HTTPException(status_code=404, detail="Announcement not found")
+    
+    announcement.announcement_title = new_announcement.announcement_title
+    announcement.announcement_description = new_announcement.announcement_description
+    db.commit()
+    db.refresh(announcement)
+
+    return announcement
+
+@app.delete("/course/delete-announcement/{announcement_id}")
+def delete_announcement(announcement_id: UUID, db: db_dependency):
+    announcement = db.query(models.Course_announcement).filter(models.Course_announcement.announcement_id == announcement_id).first()
+    if announcement is None:
+        raise HTTPException(status_code=404, detail="Announcement not found")
+    
+    db.delete(announcement)
+    db.commit()
+    return {"message": "Announcement deleted successfully"}
+
+#Admin classes
+
+class LecturersResponse(BaseModel):
+    lecturer_id: UUID
+    lecturer_name: str
+    lecturer_nic: str
+    lecturer_phone: str
+    lecturer_email: str
+    
+
 #Admin endpoints
+
+@app.post("/admin/login")
+def login(request: LoginRequest, db: Session = Depends(get_db)):
+    admin = db.query(models.Admin).filter(models.Admin.admin_email == request.email).first()
+
+    if not admin or not request.password == admin.admin_password:
+        raise HTTPException(status_code=400, detail="Incorrect username or password")
+
+    access_token = create_access_token(data={"sub": admin.admin_email})
+    return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/admin/create_lecturer")
 def create_lecturer(lecturer: Lecturer, db: Session = Depends(get_db)):
@@ -333,3 +509,35 @@ def create_lecturer(lecturer: Lecturer, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(lecturer)
     return lecturer
+
+@app.post("/admin/create_admin")
+def create_admin(admin: Admin, db: Session = Depends(get_db)):
+    admin = models.Admin(**admin.dict())
+    db.add(admin)
+    db.commit()
+    db.refresh(admin)
+    return admin
+
+@app.get("/admin/lecturers", response_model=List[LecturersResponse])
+def get_lecturers(db: Session = Depends(get_db)):
+    lecturers = db.query(models.Lecturer).all()
+    response = []
+    for lecturer in lecturers:
+        response.append(LecturersResponse(
+            lecturer_id=lecturer.lecturer_id,
+            lecturer_name=lecturer.lecturer_name,
+            lecturer_nic=lecturer.lecturer_nic,
+            lecturer_phone=lecturer.lecturer_phone,
+            lecturer_email=lecturer.lecturer_email
+        ))
+    return response
+
+@app.delete("/admin/delete_lecturer/{lecturer_id}")
+def delete_lecturer(lecturer_id: UUID, db: Session = Depends(get_db)):
+    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_id == lecturer_id).first()
+    if lecturer is None:
+        raise HTTPException(status_code=404, detail="Lecturer not found")
+    db.delete(lecturer)
+    db.commit()
+    return {"message": "Lecturer deleted successfully"}
+
