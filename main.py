@@ -69,11 +69,11 @@ class New_student(BaseModel):
 
 
 class Student(BaseModel):
-    student_id:str
-    password:str
+    student_id:UUID
+    password:UUID
 
 class Course_semester_program(BaseModel):
-    course_id:str
+    course_id:UUID
     program_id:UUID
     semester_id:str
 
@@ -228,6 +228,7 @@ class LecturerAssignedFor(BaseModel):
     lecturer_id: UUID
 
 class CourseResponse(BaseModel):
+    course_id: UUID
     course_name: str
     year: int
     enrollment_key: str
@@ -238,7 +239,10 @@ class LecturerResponse(BaseModel):
     id: UUID
     name: str
 
-#End points
+class CourseNameResponse(BaseModel):
+    course_name: str
+
+#Lecturer end points
 
 @app.post("/lecturer/login")
 def login(request: LoginRequest, db: Session = Depends(get_db)):
@@ -295,6 +299,7 @@ def get_assigned_courses(lecturer_id: UUID, db: Session = Depends(get_db)):
     for assignment in assigned_courses: 
         response.append(
             CourseResponse(
+                course_id=assignment.Course.course_id,
                 course_name=assignment.Course.course_name,
                 year=assignment.Semester.year,
                 enrollment_key=assignment.Course.enrollment_key,
@@ -311,6 +316,13 @@ def get_lecturer_by_email(email: str, db: Session = Depends(get_db)):
     if lecturer is None:
         raise HTTPException(status_code=404, detail="Lecturer not found")
     return LecturerResponse(id=lecturer.lecturer_id, name=lecturer.lecturer_name)
+
+@app.get("/courses/{course_id}")
+def get_course_name(course_id: UUID, db: Session = Depends(get_db)):
+    course = db.query(models.Course).filter(models.Course.course_id == course_id).first()
+    if course is None:
+        raise HTTPException(status_code=404, detail="Course not found")
+    return course.course_name
 
 #Admin endpoints
 

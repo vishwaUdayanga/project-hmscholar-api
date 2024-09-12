@@ -21,7 +21,7 @@ class Semester(Base):
 
 class Course(Base):
     __tablename__ = 'course'
-    course_id=Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    course_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
     course_name=Column(String,index=True)
     enrollment_key=Column(String,index=True)
     course_description=Column(String,index=True)
@@ -47,7 +47,7 @@ class Payment(Base):
     receipt_path=Column(String,index=True)
     amount=Column(Float,index=True)
     status=Column(String,index=True)
-    student_number=Column(String, ForeignKey("student.student_id"),index = True)
+    student_number=Column(UUID, ForeignKey("student.student_id"),index = True)
 
 class New_student(Base):
     __tablename__ = 'new_student'
@@ -64,7 +64,7 @@ class New_student(Base):
 
 class Student(Base):
     __tablename__ = 'student'
-    student_id=Column(String,index=True,primary_key=True)
+    student_id=Column(UUID,index=True,primary_key=True)
     password=Column(String,index=True)
     newStudent_id=Column(UUID, ForeignKey("new_student.newStudent_id"),index=True)
     date=Column(Date,index=True)
@@ -72,8 +72,8 @@ class Student(Base):
 class Course_semester_program(Base):
     __tablename__ = 'course_semester_program'
     program_id=Column(UUID, ForeignKey("program.program_id"),index=True,primary_key=True)
-    course_id=Column(String, ForeignKey("course.course_id"),index=True,primary_key=True)
-    semester_id=Column(String, ForeignKey("semester.semester_id"),index=True,primary_key=True)
+    course_id=Column(UUID, ForeignKey("course.course_id"),index=True,primary_key=True)
+    semester_id=Column(UUID, ForeignKey("semester.semester_id"),index=True,primary_key=True)
 
 #Lecturer models
 
@@ -88,8 +88,8 @@ class Lecturer(Base):
 
 class Lecturer_assigned_for (Base):
     __tablename__ = ' lecturer_assigned_for'
-    course_id=Column(String, ForeignKey("course.course_id"),index=True,primary_key=True)
-    semester_id=Column(String, ForeignKey("semester.semester_id"),index=True,primary_key=True)
+    course_id=Column(UUID, ForeignKey("course.course_id"),index=True,primary_key=True)
+    semester_id=Column(UUID, ForeignKey("semester.semester_id"),index=True,primary_key=True)
     program_id=Column(UUID, ForeignKey("program.program_id"),index=True,primary_key=True)
     lecturer_id=Column(UUID, ForeignKey("lecturer.lecturer_id"),index=True,primary_key=True)
 
