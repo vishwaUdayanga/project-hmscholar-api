@@ -323,6 +323,7 @@ def get_assigned_courses(lecturer_id: UUID, db: Session = Depends(get_db)):
         db.query(models.Lecturer_assigned_for, models.Lecturer, models.Course, models.Semester)
         .join(models.Course, models.Course.course_id == models.Lecturer_assigned_for.course_id)
         .join(models.Semester, models.Semester.semester_id == models.Lecturer_assigned_for.semester_id)
+        .join(models.Lecturer, models.Lecturer.lecturer_id == models.Lecturer_assigned_for.lecturer_id)
         .filter(models.Lecturer_assigned_for.lecturer_id == lecturer_id)
         .all()
     )
@@ -488,6 +489,40 @@ class LecturersResponse(BaseModel):
     lecturer_nic: str
     lecturer_phone: str
     lecturer_email: str
+
+class LecturerGetResponse(BaseModel):
+    lecturer_id: UUID
+    lecturer_name: str
+    lecturer_nic: str
+    lecturer_phone: str
+    lecturer_email: str
+    lecturer_password: str
+
+class LecturerEditResponse(BaseModel):
+    lecturer_name: str
+    lecturer_nic: str
+    lecturer_phone: str
+    lecturer_email: str
+    lecturer_password: str
+
+class AdminCourses(BaseModel):
+    course_id: UUID
+    course_name: str
+    enrollment_key: str
+    course_description: str
+
+class CourseRequest(BaseModel):
+    course_name: str
+    enrollment_key: str
+    course_description: str
+
+class StudentRequest(BaseModel):
+    student_id: UUID
+    email: str
+
+class CreateStudent(BaseModel):
+    email: str
+    password: str
     
 
 #Admin endpoints
@@ -532,6 +567,36 @@ def get_lecturers(db: Session = Depends(get_db)):
         ))
     return response
 
+@app.get("/admin/lecturer/{lecturer_id}")
+def get_lecturer(lecturer_id: UUID, db: Session = Depends(get_db)):
+    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_id == lecturer_id).first()
+    if lecturer is None:
+        raise HTTPException(status_code=404, detail="Lecturer not found")
+    return LecturerGetResponse(
+        lecturer_id=lecturer.lecturer_id,
+        lecturer_name=lecturer.lecturer_name,
+        lecturer_nic=lecturer.lecturer_nic,
+        lecturer_phone=lecturer.lecturer_phone,
+        lecturer_email=lecturer.lecturer_email,
+        lecturer_password=lecturer.lecturer_password
+    )
+
+@app.put("/admin/edit_lecturer/{lecturer_id}")
+def edit_lecturer(lecturer_id: UUID, new_lecturer: LecturerEditResponse, db: Session = Depends(get_db)):
+    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_id == lecturer_id).first()
+    if lecturer is None:
+        raise HTTPException(status_code=404, detail="Lecturer not found")
+    
+    lecturer.lecturer_name = new_lecturer.lecturer_name
+    lecturer.lecturer_nic = new_lecturer.lecturer_nic
+    lecturer.lecturer_phone = new_lecturer.lecturer_phone
+    lecturer.lecturer_email = new_lecturer.lecturer_email
+    lecturer.lecturer_password = new_lecturer.lecturer_password
+    db.commit()
+    db.refresh(lecturer)
+
+    return lecturer
+
 @app.delete("/admin/delete_lecturer/{lecturer_id}")
 def delete_lecturer(lecturer_id: UUID, db: Session = Depends(get_db)):
     lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_id == lecturer_id).first()
@@ -541,3 +606,109 @@ def delete_lecturer(lecturer_id: UUID, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Lecturer deleted successfully"}
 
+@app.get("/admin/courses", response_model=List[AdminCourses])
+def get_courses(db: Session = Depends(get_db)):
+    courses = db.query(models.Course).all()
+    response = []
+    for course in courses:
+        response.append(AdminCourses(
+            course_id=course.course_id,
+            course_name=course.course_name,
+            enrollment_key=course.enrollment_key,
+            course_description=course.course_description
+        ))
+    return response
+
+@app.get("/admin/course/{course_id}")
+def get_course(course_id: UUID, db: Session = Depends(get_db)):
+    course = db.query(models.Course).filter(models.Course.course_id == course_id).first()
+    if course is None:
+        raise HTTPException(status_code=404, detail="Course not found")
+    return AdminCourses(
+        course_id=course.course_id,
+        course_name=course.course_name,
+        enrollment_key=course.enrollment_key,
+        course_description=course.course_description
+    )
+
+@app.delete("/admin/delete_course/{course_id}")
+def delete_course(course_id: UUID, db: Session = Depends(get_db)):
+    course = db.query(models.Course).filter(models.Course.course_id == course_id).first()
+    if course is None:
+        raise HTTPException(status_code=404, detail="Course not found")
+    db.delete(course)
+    db.commit()
+    return {"message": "Course deleted successfully"}
+
+@app.post("/admin/create_course")
+def create_course(course: CourseRequest, db: Session = Depends(get_db)):
+    course = models.Course(**course.dict())
+    db.add(course)
+    db.commit()
+    db.refresh(course)
+    return course
+
+@app.put("/admin/edit_course/{course_id}")
+def edit_course(course_id: UUID, new_course: CourseRequest, db: Session = Depends(get_db)):
+    course = db.query(models.Course).filter(models.Course.course_id == course_id).first()
+    if course is None:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    course.course_name = new_course.course_name
+    course.enrollment_key = new_course.enrollment_key
+    course.course_description = new_course.course_description
+    db.commit()
+    db.refresh(course)
+
+    return course
+
+@app.get("/admin/students", response_model=List[StudentRequest])
+def get_students(db: Session = Depends(get_db)):
+    students = db.query(models.Student).all()
+    response = []
+    for student in students:
+        response.append(StudentRequest(
+            student_id=student.student_id,
+            email=student.email
+        ))
+    return response
+
+@app.delete("/admin/delete_student/{student_id}")
+def delete_student(student_id: UUID, db: Session = Depends(get_db)):
+    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    if student is None:
+        raise HTTPException(status_code=404, detail="Student not found")
+    db.delete(student)
+    db.commit()
+    return {"message": "Student deleted successfully"}
+
+@app.post("/admin/create_student")
+def create_student(student: CreateStudent, db: Session = Depends(get_db)):
+    student = models.Student(**student.dict())
+    db.add(student)
+    db.commit()
+    db.refresh(student)
+    return student
+
+@app.get("/admin/student/{student_id}")
+def get_student(student_id: UUID, db: Session = Depends(get_db)):
+    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    if student is None:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return CreateStudent(
+        email=student.email,
+        password=student.password
+    )
+
+@app.put("/admin/edit_student/{student_id}")
+def edit_student(student_id: UUID, new_student: CreateStudent, db: Session = Depends(get_db)):
+    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    if student is None:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    student.email = new_student.email
+    student.password = new_student.password
+    db.commit()
+    db.refresh(student)
+
+    return student

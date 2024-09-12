@@ -64,10 +64,10 @@ class New_student(Base):
 
 class Student(Base):
     __tablename__ = 'student'
-    student_id=Column(UUID,index=True,primary_key=True)
+    student_id=Column(UUID,index=True,primary_key=True, default=uuid.uuid4)
+    email=Column(String,index=True)
     password=Column(String,index=True)
-    newStudent_id=Column(UUID, ForeignKey("new_student.newStudent_id"),index=True)
-    date=Column(Date,index=True)
+    # newStudent_id=Column(UUID, ForeignKey("new_student.newStudent_id"),index=True)
 
 class Course_semester_program(Base):
     __tablename__ = 'course_semester_program'
