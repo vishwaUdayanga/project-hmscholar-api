@@ -69,8 +69,8 @@ class New_student(BaseModel):
 
 
 class Student(BaseModel):
-    student_id:UUID
-    password:UUID
+    email:str
+    password:str
 
 class Course_semester_program(BaseModel):
     course_id:UUID
