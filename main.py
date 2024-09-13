@@ -277,6 +277,20 @@ class Course_announcement_response(BaseModel):
     announcement_description: str
     course_id: UUID
 
+class Student_profile_response(BaseModel):
+    id:UUID
+    email:str
+    password:str
+
+class StudentEditEmail(BaseModel):
+    new_email: str
+
+class StudentEditPassword(BaseModel):
+    old_password:str
+    new_password: str
+
+    
+
 #Lecturer end points
 
 @app.post("/lecturer/login")
@@ -545,6 +559,14 @@ def create_lecturer(lecturer: Lecturer, db: Session = Depends(get_db)):
     db.refresh(lecturer)
     return lecturer
 
+@app.post("/admin/create_student")
+def create_lecturer(student: Student, db: Session = Depends(get_db)):
+    student = models.Student(**student.dict())
+    db.add(student)
+    db.commit()
+    db.refresh(student)
+    return student
+
 @app.post("/admin/create_admin")
 def create_admin(admin: Admin, db: Session = Depends(get_db)):
     admin = models.Admin(**admin.dict())
@@ -712,3 +734,54 @@ def edit_student(student_id: UUID, new_student: CreateStudent, db: Session = Dep
     db.refresh(student)
 
     return student
+
+#Student endpoints
+@app.post("/student/login")
+def login(request: LoginRequest, db: Session = Depends(get_db)):
+    student = db.query(models.Student).filter(models.Student.email == request.email).first()
+
+    if not student or not request.password == student.password:
+        raise HTTPException(status_code=400, detail="Incorrect username or password")
+
+    access_token = create_access_token(data={"sub": student.email})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/student/profile/{email}")
+def get_profile(email: str, db: Session = Depends(get_db)):
+    student_profile = db.query(models.Student).filter(models.Student.email == email).first()
+    if not student_profile:
+        raise HTTPException(status_code=404, detail="Student profile not found")
+    return student_profile
+
+@app.get("/student/profile/{student_id}")
+def get_profile(email: str, db: Session = Depends(get_db)):
+    student_profile = db.query(models.Student).filter(models.Student.email == email).first()
+    if not student_profile:
+        raise HTTPException(status_code=404, detail="Student profile not found")
+    return student_profile
+
+@app.put("/student/edit-email/{student_id}")
+def edit_student(student_id: UUID, new_student: StudentEditEmail, db: Session = Depends(get_db)):
+    Student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    if Student is None:
+        raise HTTPException(status_code=404, detail="Announcement not found")
+    
+    Student.email = new_student.new_email
+    db.commit()
+    db.refresh(Student)
+
+    return Student
+
+@app.put("/student/edit-password/{student_id}")
+def edit_student(student_id: UUID, new_student: StudentEditPassword, db: Session = Depends(get_db)):
+    Student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    if Student is None:
+        raise HTTPException(status_code=404, detail="Announcement not found")
+    if Student.password == new_student.old_password:
+        Student.password = new_student.new_password
+    else:
+        raise HTTPException(status_code=404, detail="Announcement not found")        
+    db.commit()
+    db.refresh(Student)
+
+    return Student
