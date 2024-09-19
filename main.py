@@ -8,9 +8,11 @@ from database import engine, SessionLocal
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
-# from passlib.context import CryptContext
+from passlib.context import CryptContext
 import os
 from dotenv import load_dotenv
+import utils
+import request_models
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -182,14 +184,6 @@ def get_student_details(db: db_dependency):
 
 #Lecturer utils
 
-# pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# def verify_password(plain_password, hashed_password):
-#     return pwd_context.verify(plain_password, hashed_password)
-
-# def get_password_hash(password):
-#     return pwd_context.hash(password)
-
 def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=30)
@@ -297,11 +291,20 @@ class StudentEditPassword(BaseModel):
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_email == request.email).first()
 
-    if not lecturer or not request.password == lecturer.lecturer_password:
+    if not lecturer or not utils.verify_password(request.password, lecturer.lecturer_password):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
 
-    access_token = create_access_token(data={"sub": lecturer.lecturer_email})
+    access_token = create_access_token(data={"sub": lecturer.lecturer_email, "password": lecturer.lecturer_password, "type": "lecturer"})
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/lecturer/validate")
+def validate(request: LoginRequest, db: Session = Depends(get_db)):
+    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_email == request.email).first()
+
+    if not lecturer or not lecturer.lecturer_password == request.password:
+        raise HTTPException(status_code=400, detail="Incorrect username or password")
+
+    return {"message": "Validation successful"}
 
 @app.post("/add_courses")
 def create_admin(new_admin: Course, db: db_dependency):
@@ -375,11 +378,21 @@ def get_course_name(course_id: UUID, db: Session = Depends(get_db)):
     return course.course_name
 
 @app.post("/add_section")
-def create_section(new_section: Section, db: db_dependency):
+def add_section(new_section: request_models.Section, db: db_dependency):
     db_section = models.Section(**new_section.dict())
     db.add(db_section)
     db.commit()
     db.refresh(db_section)
+    return db_section
+
+@app.post("/add_course_material")
+def add_course_material(new_material: request_models.Course_Material, db: db_dependency):
+    db_material = models.Course_material(**new_material.dict())
+    db.add(db_material)
+    db.commit()
+    db.refresh(db_material)
+    return db_material
+    
 
 @app.get("/sections/{course_id}")
 def get_sections(course_id: UUID, db: Session = Depends(get_db)):
@@ -389,13 +402,15 @@ def get_sections(course_id: UUID, db: Session = Depends(get_db)):
     
     response = []
     for section in sections:
-        response.append(
-            SectionResponse(
-                section_id=section.section_id,
-                section_name=section.section_name,
-                section_description=section.section_description
-            )
-        )
+        materials = db.query(models.Course_material).filter(models.Course_material.section_id == section.section_id).all()
+        material_response = [{"material_name": mat.material_name, "material_path": mat.material_path} for mat in materials]
+
+        response.append({
+            "section_id": section.section_id,
+            "section_name": section.section_name,
+            "section_description": section.section_description,
+            "materials": material_response
+        })
 
     return response
 
@@ -545,19 +560,32 @@ class CreateStudent(BaseModel):
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     admin = db.query(models.Admin).filter(models.Admin.admin_email == request.email).first()
 
-    if not admin or not request.password == admin.admin_password:
+    if not admin or not utils.verify_password(request.password, admin.admin_password):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
 
-    access_token = create_access_token(data={"sub": admin.admin_email})
+    access_token = create_access_token(data={"sub": admin.admin_email, "password": admin.admin_password, "type": "admin"})
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/admin/validate")
+def validate(request: LoginRequest, db: Session = Depends(get_db)):
+    admin = db.query(models.Admin).filter(models.Admin.admin_email == request.email).first()
+
+    if not admin or not admin.admin_password == request.password:
+        raise HTTPException(status_code=400, detail="Incorrect username or password")
+
+    return {"message": "Validation successful"}
 
 @app.post("/admin/create_lecturer")
 def create_lecturer(lecturer: Lecturer, db: Session = Depends(get_db)):
-    lecturer = models.Lecturer(**lecturer.dict())
+    hash_password = utils.get_password_hash(lecturer.lecturer_password)
+    lecturer_data = lecturer.dict(exclude={"lecturer_password"})
+    lecturer = models.Lecturer(**lecturer_data, lecturer_password=hash_password)
     db.add(lecturer)
     db.commit()
     db.refresh(lecturer)
     return lecturer
+
+
 
 @app.post("/admin/create_student")
 def create_lecturer(student: Student, db: Session = Depends(get_db)):
@@ -569,7 +597,9 @@ def create_lecturer(student: Student, db: Session = Depends(get_db)):
 
 @app.post("/admin/create_admin")
 def create_admin(admin: Admin, db: Session = Depends(get_db)):
-    admin = models.Admin(**admin.dict())
+    hash_password = utils.get_password_hash(admin.admin_password)
+    admin_data = admin.dict(exclude={"admin_password"})
+    admin = models.Admin(**admin_data, admin_password=hash_password)
     db.add(admin)
     db.commit()
     db.refresh(admin)

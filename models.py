@@ -107,6 +107,13 @@ class Course_announcement(Base):
     announcement_description=Column(String,index=True)
     course_id=Column(UUID, ForeignKey("course.course_id"),index=True)
 
+class Course_material(Base):
+    __tablename__ = 'course_material'
+    material_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
+    material_name=Column(String,index=True)
+    material_path=Column(String,index=True)
+    section_id=Column(UUID, ForeignKey("section.section_id"),index=True)
+
 
 
 
