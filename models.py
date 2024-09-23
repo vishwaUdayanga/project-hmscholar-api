@@ -114,6 +114,32 @@ class Course_material(Base):
     material_path=Column(String,index=True)
     section_id=Column(UUID, ForeignKey("section.section_id"),index=True)
 
+class Quiz(Base):
+    __tablename__ = 'quiz'
+    quiz_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
+    quiz_name=Column(String,index=True)
+    quiz_duration=Column(Integer,index=True)
+    quiz_total_marks=Column(Integer,index=True)
+    quiz_description=Column(String,index=True)
+    quiz_password=Column(String,index=True)
+    quiz_no_of_questions=Column(Integer,index=True)
+    section_id=Column(UUID, ForeignKey("section.section_id"),index=True)
+
+class Question(Base):
+    __tablename__ = 'question'
+    question_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
+    question=Column(String,index=True)
+    marks=Column(Integer,index=True)
+    question_type=Column(String,index=True)
+    quiz_id=Column(UUID, ForeignKey("quiz.quiz_id"),index=True)
+
+class Answer(Base):
+    __tablename__ = 'answer'
+    answer_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
+    answer=Column(String,index=True)
+    is_correct=Column(Boolean,index=True)
+    question_id=Column(UUID, ForeignKey("question.question_id"),index=True)
+
 
 
 

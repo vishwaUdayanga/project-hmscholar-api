@@ -414,6 +414,77 @@ def get_sections(course_id: UUID, db: Session = Depends(get_db)):
 
     return response
 
+@app.get("/sections-for-quiz/{course_id}")
+def get_sections_for_quiz(course_id: UUID, db: Session = Depends(get_db)):
+    sections = db.query(models.Section).filter(models.Section.course_id == course_id).all()
+    if not sections:
+        raise HTTPException(status_code=404, detail="Sections not found for this course")
+    
+    response = []
+    for section in sections:
+        response.append({
+            "section_id": section.section_id,
+            "section_name": section.section_name,
+        })
+
+    return response
+
+@app.post("/create-quiz")
+def create_quiz(new_quiz: request_models.Quiz, db: db_dependency):
+    quiz = models.Quiz(
+        quiz_name=new_quiz.quiz_name,
+        quiz_duration=new_quiz.quiz_duration,
+        quiz_total_marks=new_quiz.quiz_total_marks,
+        quiz_description=new_quiz.quiz_description,
+        quiz_password=new_quiz.quiz_password,
+        quiz_no_of_questions=new_quiz.quiz_number_of_questions,
+        section_id=new_quiz.section_id
+    )
+    db.add(quiz)
+    db.commit()
+    db.refresh(quiz)
+
+    for question in new_quiz.questions:
+        db_question = models.Question(
+            question=question.questionText,
+            marks=question.questionMarks,
+            question_type=question.questionType,
+            quiz_id=quiz.quiz_id
+        )
+        db.add(db_question)
+        db.commit()
+        db.refresh(db_question)
+
+        if question.questionType == 'mcq':
+            correct_answer = models.Answer(
+                answer=question.correctAnswer,
+                is_correct=True,
+                question_id=db_question.question_id,
+            )
+            db.add(correct_answer)
+            db.commit()
+            db.refresh(correct_answer)
+            for i in range(3):
+                answer_text = None
+                if i == 0:
+                    answer_text = question.answer2
+                elif i == 1:
+                    answer_text = question.answer3
+                elif i == 2:
+                    answer_text = question.answer4
+                
+                if answer_text is not None:
+                    answer = models.Answer(
+                        answer=answer_text,
+                        is_correct=False,
+                        question_id=db_question.question_id,
+                    )
+                    db.add(answer)
+                    db.commit()
+                    db.refresh(answer)
+    
+    return quiz
+
 @app.get("/one-section/{section_id}") 
 def get_section(section_id: UUID, db: Session = Depends(get_db)):
     section = db.query(models.Section).filter(models.Section.section_id == section_id).first()
