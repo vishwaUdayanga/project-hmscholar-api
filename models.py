@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, Float,  String, UUID, Date
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, Float,  String, UUID, Date,func
 from database import Base
 import uuid
 
@@ -40,7 +40,7 @@ class Affiliated_University(Base):
 class Payment(Base):
     __tablename__ = 'payment'
     payment_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
-    date=Column(Date,index=True)
+    date = Column(Date, index=True, default=func.now())
     type=Column(String,index=True)
     bank=Column(String,index=True)
     branch=Column(String,index=True)
@@ -60,14 +60,15 @@ class New_student(Base):
     AL_path=Column(String)
     payment_id=Column(UUID, ForeignKey("payment.payment_id"),index=True)
     program_id=Column(UUID, ForeignKey("program.program_id"),index=True)
-    date=Column(Date,index=True)
+    date = Column(Date, index=True, default=func.now())
 
 class Student(Base):
     __tablename__ = 'student'
     student_id=Column(UUID,index=True,primary_key=True, default=uuid.uuid4)
     email=Column(String,index=True)
     password=Column(String,index=True)
-    # newStudent_id=Column(UUID, ForeignKey("new_student.newStudent_id"),index=True)
+    semester_id=Column(UUID,ForeignKey("semester.semester_id"), index=True)
+    newStudent_id=Column(UUID, ForeignKey("new_student.newStudent_id"),index=True)
 
 class Course_semester_program(Base):
     __tablename__ = 'course_semester_program'
@@ -106,6 +107,13 @@ class Course_announcement(Base):
     announcement_title=Column(String,index=True)
     announcement_description=Column(String,index=True)
     course_id=Column(UUID, ForeignKey("course.course_id"),index=True)
+
+class Student_enrolled_course(Base):
+    __tablename__ = 'student_enrolled_courses'
+    course_id=Column(UUID,ForeignKey("course.course_id"),index=True,primary_key=True,)
+    student_id=Column(UUID,ForeignKey("student.student_id"),index=True,primary_key=True,)
+    semester_id=Column(UUID,ForeignKey("semester.semester_id"), primary_key=True, index=True )
+
 
 
 
