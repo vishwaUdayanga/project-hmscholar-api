@@ -67,7 +67,15 @@ class Student(Base):
     student_id=Column(UUID,index=True,primary_key=True, default=uuid.uuid4)
     email=Column(String,index=True)
     password=Column(String,index=True)
-    # newStudent_id=Column(UUID, ForeignKey("new_student.newStudent_id"),index=True)
+    semester_id=Column(UUID,ForeignKey("semester.semester_id"), index=True)
+    newStudent_id=Column(UUID, ForeignKey("new_student.newStudent_id"),index=True)
+
+class Student_enrolled_course(Base):
+    __tablename__ = 'student_enrolled_courses'
+    course_id=Column(UUID,ForeignKey("course.course_id"),index=True,primary_key=True,)
+    student_id=Column(UUID,ForeignKey("student.student_id"),index=True,primary_key=True,)
+    semester_id=Column(UUID,ForeignKey("semester.semester_id"), primary_key=True, index=True )
+
 
 class Course_semester_program(Base):
     __tablename__ = 'course_semester_program'
@@ -85,6 +93,7 @@ class Lecturer(Base):
     lecturer_phone=Column(String,index=True)
     lecturer_email=Column(String,index=True)
     lecturer_password=Column(String,index=True)
+    lecturer_image=Column(String,index=True, default=None)
 
 class Lecturer_assigned_for (Base):
     __tablename__ = ' lecturer_assigned_for'

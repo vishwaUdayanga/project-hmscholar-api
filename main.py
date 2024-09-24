@@ -370,6 +370,13 @@ def get_lecturer_by_email(email: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Lecturer not found")
     return LecturerResponse(id=lecturer.lecturer_id, name=lecturer.lecturer_name)
 
+@app.get("/lecturer/by-email/details/{email}")
+def get_lecturer_details(email: str, db: Session = Depends(get_db)):
+    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_email == email).first()
+    if lecturer is None:
+        raise HTTPException(status_code=404, detail="Lecturer not found")
+    return lecturer
+
 @app.get("/courses/{course_id}")
 def get_course_name(course_id: UUID, db: Session = Depends(get_db)):
     course = db.query(models.Course).filter(models.Course.course_id == course_id).first()
