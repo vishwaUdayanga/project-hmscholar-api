@@ -2,6 +2,10 @@ from pydantic import BaseModel
 from uuid import UUID
 from typing import List, Optional
 
+class Login(BaseModel):
+    user_name: str
+    password: str
+
 class Section(BaseModel):
     section_name: str
     section_description: str
@@ -30,5 +34,12 @@ class Quiz(BaseModel):
     quiz_number_of_questions: int
     questions: List[Question]
     section_id: UUID
+
+class Student(BaseModel):
+    email:str
+    password:str
+    semester_id:UUID
+    newStudent_id:UUID
+
 
 

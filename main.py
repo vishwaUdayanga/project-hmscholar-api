@@ -91,6 +91,67 @@ db_dependency = Annotated[Session, Depends(get_db)]
 @app.get("/")
 def read_root():
     return {"Base URL"}
+
+## Logins
+
+@app.post("/login-to-lms")
+def login_to_lms(request: request_models.Login, db: Session = Depends(get_db)):
+    student = db.query(models.Student).filter(models.Student.email == request.user_name).first()
+    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_email == request.user_name).first()
+    admin = db.query(models.Admin).filter(models.Admin.admin_email == request.user_name).first()
+
+    if student:
+        if not utils.verify_password(request.password, student.password):
+            raise HTTPException(status_code=400, detail="Incorrect username or password")
+        access_token = create_access_token(data={"sub": student.email, "password": student.password, "type": "student"})
+        return {"access_token": access_token, "token_type": "bearer", "student_id": student.student_id, "type": "student"}
+    elif lecturer:
+        if not utils.verify_password(request.password, lecturer.lecturer_password):
+            raise HTTPException(status_code=400, detail="Incorrect username or password")
+        access_token = create_access_token(data={"sub": lecturer.lecturer_email, "password": lecturer.lecturer_password, "type": "lecturer"})
+        return {"access_token": access_token, "token_type": "bearer", "lecturer_id": lecturer.lecturer_id, "type": "lecturer"}
+    elif admin:
+        print(admin.admin_password)
+        if not utils.verify_password(request.password, admin.admin_password):
+            raise HTTPException(status_code=400, detail="Incorrect username or password")
+        access_token = create_access_token(data={"sub": admin.admin_email, "password": admin.admin_password, "type": "admin"})
+        return {"access_token": access_token, "token_type": "bearer", "admin_id": admin.admin_id, "type": "admin"}
+    
+
+@app.post("/login-to-portal")
+def login_to_portal(request: request_models.Login, db: Session = Depends(get_db)):
+    student = db.query(models.Student).filter(models.Student.email == request.user_name).first()
+    admin = db.query(models.Admin).filter(models.Admin.admin_email == request.user_name).first()
+
+    if student:
+        if not student.password == request.password:
+            raise HTTPException(status_code=400, detail="Incorrect username or password")
+        access_token = create_access_token(data={"sub": student.email, "password": student.password, "type": "student"})
+        return {"access_token": access_token, "token_type": "bearer", "student_id": student.student_id, "type": "student"}
+    elif admin:
+        if not utils.verify_password(request.password, admin.admin_password):
+            raise HTTPException(status_code=400, detail="Incorrect username or password")
+        access_token = create_access_token(data={"sub": admin.admin_email, "password": admin.admin_password, "type": "admin"})
+        return {"access_token": access_token, "token_type": "bearer", "admin_id": admin.admin_id, "type": "admin"}
+
+@app.post("/validate-login-to-lms")
+def validate_login_to_lms(request: request_models.Login, db: Session = Depends(get_db)):
+    student = db.query(models.Student).filter(models.Student.email == request.user_name).first()
+    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_email == request.user_name).first()
+    admin = db.query(models.Admin).filter(models.Admin.admin_email == request.user_name).first()
+
+    if student:
+        if not student.password == request.password:
+            raise HTTPException(status_code=400, detail="Incorrect username or password")
+        return {"message": "Validation successful", "type": "student"}
+    elif lecturer:
+        if not lecturer.lecturer_password == request.password:
+            raise HTTPException(status_code=400, detail="Incorrect username or password")
+        return {"message": "Validation successful", "type": "lecturer"}
+    elif admin:
+        if not admin.admin_password == request.password:
+            raise HTTPException(status_code=400, detail="Incorrect username or password")
+        return {"message": "Validation successful", "type": "admin"}
  
 @app.post("/admin/login/")
 def admin_login(admin_login: Admin, db: db_dependency):
@@ -286,25 +347,6 @@ class StudentEditPassword(BaseModel):
     
 
 #Lecturer end points
-
-@app.post("/lecturer/login")
-def login(request: LoginRequest, db: Session = Depends(get_db)):
-    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_email == request.email).first()
-
-    if not lecturer or not utils.verify_password(request.password, lecturer.lecturer_password):
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-
-    access_token = create_access_token(data={"sub": lecturer.lecturer_email, "password": lecturer.lecturer_password, "type": "lecturer"})
-    return {"access_token": access_token, "token_type": "bearer"}
-
-@app.post("/lecturer/validate")
-def validate(request: LoginRequest, db: Session = Depends(get_db)):
-    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_email == request.email).first()
-
-    if not lecturer or not lecturer.lecturer_password == request.password:
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-
-    return {"message": "Validation successful"}
 
 @app.post("/add_courses")
 def create_admin(new_admin: Course, db: db_dependency):
@@ -634,25 +676,6 @@ class CreateStudent(BaseModel):
 
 #Admin endpoints
 
-@app.post("/admin/login")
-def login(request: LoginRequest, db: Session = Depends(get_db)):
-    admin = db.query(models.Admin).filter(models.Admin.admin_email == request.email).first()
-
-    if not admin or not utils.verify_password(request.password, admin.admin_password):
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-
-    access_token = create_access_token(data={"sub": admin.admin_email, "password": admin.admin_password, "type": "admin"})
-    return {"access_token": access_token, "token_type": "bearer"}
-
-@app.post("/admin/validate")
-def validate(request: LoginRequest, db: Session = Depends(get_db)):
-    admin = db.query(models.Admin).filter(models.Admin.admin_email == request.email).first()
-
-    if not admin or not admin.admin_password == request.password:
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-
-    return {"message": "Validation successful"}
-
 @app.post("/admin/create_lecturer")
 def create_lecturer(lecturer: Lecturer, db: Session = Depends(get_db)):
     hash_password = utils.get_password_hash(lecturer.lecturer_password)
@@ -663,15 +686,6 @@ def create_lecturer(lecturer: Lecturer, db: Session = Depends(get_db)):
     db.refresh(lecturer)
     return lecturer
 
-
-
-@app.post("/admin/create_student")
-def create_lecturer(student: Student, db: Session = Depends(get_db)):
-    student = models.Student(**student.dict())
-    db.add(student)
-    db.commit()
-    db.refresh(student)
-    return student
 
 @app.post("/admin/create_admin")
 def create_admin(admin: Admin, db: Session = Depends(get_db)):
@@ -813,12 +827,15 @@ def delete_student(student_id: UUID, db: Session = Depends(get_db)):
     return {"message": "Student deleted successfully"}
 
 @app.post("/admin/create_student")
-def create_student(student: CreateStudent, db: Session = Depends(get_db)):
-    student = models.Student(**student.dict())
+def create_student(student: request_models.Student, db: Session = Depends(get_db)):
+    hash_password = utils.get_password_hash(student.password)
+    student_data = student.dict(exclude={"password"})
+    student = models.Student(**student_data, password=hash_password)
     db.add(student)
     db.commit()
     db.refresh(student)
     return student
+
 
 @app.get("/admin/student/{student_id}")
 def get_student(student_id: UUID, db: Session = Depends(get_db)):
@@ -844,15 +861,6 @@ def edit_student(student_id: UUID, new_student: CreateStudent, db: Session = Dep
     return student
 
 #Student endpoints
-@app.post("/student/login")
-def login(request: LoginRequest, db: Session = Depends(get_db)):
-    student = db.query(models.Student).filter(models.Student.email == request.email).first()
-
-    if not student or not request.password == student.password:
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-
-    access_token = create_access_token(data={"sub": student.email})
-    return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/student/profile/{email}")
 def get_profile(email: str, db: Session = Depends(get_db)):
