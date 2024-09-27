@@ -69,6 +69,7 @@ class Student(Base):
     password=Column(String,index=True)
     semester_id=Column(UUID,ForeignKey("semester.semester_id"), index=True)
     newStudent_id=Column(UUID, ForeignKey("new_student.newStudent_id"),index=True)
+    image_path = Column(String,index=True)
 
 class Student_enrolled_course(Base):
     __tablename__ = 'student_enrolled_courses'
