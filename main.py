@@ -8,9 +8,11 @@ from database import engine, SessionLocal
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
-# from passlib.context import CryptContext
+from passlib.context import CryptContext
 import os
 from dotenv import load_dotenv
+import utils
+import request_models
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -102,6 +104,67 @@ db_dependency = Annotated[Session, Depends(get_db)]
 @app.get("/")
 def read_root():
     return {"Base URL"}
+
+## Logins
+
+@app.post("/login-to-lms")
+def login_to_lms(request: request_models.Login, db: Session = Depends(get_db)):
+    student = db.query(models.Student).filter(models.Student.email == request.user_name).first()
+    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_email == request.user_name).first()
+    admin = db.query(models.Admin).filter(models.Admin.admin_email == request.user_name).first()
+
+    if student:
+        if not utils.verify_password(request.password, student.password):
+            raise HTTPException(status_code=400, detail="Incorrect username or password")
+        access_token = create_access_token(data={"sub": student.email, "password": student.password, "type": "student"})
+        return {"access_token": access_token, "token_type": "bearer", "student_id": student.student_id, "type": "student"}
+    elif lecturer:
+        if not utils.verify_password(request.password, lecturer.lecturer_password):
+            raise HTTPException(status_code=400, detail="Incorrect username or password")
+        access_token = create_access_token(data={"sub": lecturer.lecturer_email, "password": lecturer.lecturer_password, "type": "lecturer"})
+        return {"access_token": access_token, "token_type": "bearer", "lecturer_id": lecturer.lecturer_id, "type": "lecturer"}
+    elif admin:
+        print(admin.admin_password)
+        if not utils.verify_password(request.password, admin.admin_password):
+            raise HTTPException(status_code=400, detail="Incorrect username or password")
+        access_token = create_access_token(data={"sub": admin.admin_email, "password": admin.admin_password, "type": "admin"})
+        return {"access_token": access_token, "token_type": "bearer", "admin_id": admin.admin_id, "type": "admin"}
+    
+
+@app.post("/login-to-portal")
+def login_to_portal(request: request_models.Login, db: Session = Depends(get_db)):
+    student = db.query(models.Student).filter(models.Student.email == request.user_name).first()
+    admin = db.query(models.Admin).filter(models.Admin.admin_email == request.user_name).first()
+
+    if student:
+        if not student.password == request.password:
+            raise HTTPException(status_code=400, detail="Incorrect username or password")
+        access_token = create_access_token(data={"sub": student.email, "password": student.password, "type": "student"})
+        return {"access_token": access_token, "token_type": "bearer", "student_id": student.student_id, "type": "student"}
+    elif admin:
+        if not utils.verify_password(request.password, admin.admin_password):
+            raise HTTPException(status_code=400, detail="Incorrect username or password")
+        access_token = create_access_token(data={"sub": admin.admin_email, "password": admin.admin_password, "type": "admin"})
+        return {"access_token": access_token, "token_type": "bearer", "admin_id": admin.admin_id, "type": "admin"}
+
+@app.post("/validate-login-to-lms")
+def validate_login_to_lms(request: request_models.Login, db: Session = Depends(get_db)):
+    student = db.query(models.Student).filter(models.Student.email == request.user_name).first()
+    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_email == request.user_name).first()
+    admin = db.query(models.Admin).filter(models.Admin.admin_email == request.user_name).first()
+
+    if student:
+        if not student.password == request.password:
+            raise HTTPException(status_code=400, detail="Incorrect username or password")
+        return {"message": "Validation successful", "type": "student"}
+    elif lecturer:
+        if not lecturer.lecturer_password == request.password:
+            raise HTTPException(status_code=400, detail="Incorrect username or password")
+        return {"message": "Validation successful", "type": "lecturer"}
+    elif admin:
+        if not admin.admin_password == request.password:
+            raise HTTPException(status_code=400, detail="Incorrect username or password")
+        return {"message": "Validation successful", "type": "admin"}
  
 @app.post("/admin/login/")
 def admin_login(admin_login: Admin, db: db_dependency):
@@ -193,14 +256,6 @@ def get_student_details(db: db_dependency):
 #Lecturer
 
 #Lecturer utils
-
-# pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# def verify_password(plain_password, hashed_password):
-#     return pwd_context.verify(plain_password, hashed_password)
-
-# def get_password_hash(password):
-#     return pwd_context.hash(password)
 
 def create_access_token(data: dict):
     to_encode = data.copy()
@@ -305,16 +360,6 @@ class StudentEditPassword(BaseModel):
 
 #Lecturer end points
 
-@app.post("/lecturer/login")
-def login(request: LoginRequest, db: Session = Depends(get_db)):
-    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_email == request.email).first()
-
-    if not lecturer or not request.password == lecturer.lecturer_password:
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-
-    access_token = create_access_token(data={"sub": lecturer.lecturer_email})
-    return {"access_token": access_token, "token_type": "bearer"}
-
 @app.post("/add_courses")
 def create_admin(new_admin: Course, db: db_dependency):
     db_course = models.Course(**new_admin.dict())
@@ -349,6 +394,7 @@ def get_assigned_courses(lecturer_id: UUID, db: Session = Depends(get_db)):
         db.query(models.Lecturer_assigned_for, models.Lecturer, models.Course, models.Semester)
         .join(models.Course, models.Course.course_id == models.Lecturer_assigned_for.course_id)
         .join(models.Semester, models.Semester.semester_id == models.Lecturer_assigned_for.semester_id)
+        .join(models.Lecturer, models.Lecturer.lecturer_id == models.Lecturer_assigned_for.lecturer_id)
         .filter(models.Lecturer_assigned_for.lecturer_id == lecturer_id)
         .all()
     )
@@ -378,6 +424,13 @@ def get_lecturer_by_email(email: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Lecturer not found")
     return LecturerResponse(id=lecturer.lecturer_id, name=lecturer.lecturer_name)
 
+@app.get("/lecturer/by-email/details/{email}")
+def get_lecturer_details(email: str, db: Session = Depends(get_db)):
+    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_email == email).first()
+    if lecturer is None:
+        raise HTTPException(status_code=404, detail="Lecturer not found")
+    return lecturer
+
 @app.get("/courses/{course_id}")
 def get_course_name(course_id: UUID, db: Session = Depends(get_db)):
     course = db.query(models.Course).filter(models.Course.course_id == course_id).first()
@@ -386,11 +439,21 @@ def get_course_name(course_id: UUID, db: Session = Depends(get_db)):
     return course.course_name
 
 @app.post("/add_section")
-def create_section(new_section: Section, db: db_dependency):
+def add_section(new_section: request_models.Section, db: db_dependency):
     db_section = models.Section(**new_section.dict())
     db.add(db_section)
     db.commit()
     db.refresh(db_section)
+    return db_section
+
+@app.post("/add_course_material")
+def add_course_material(new_material: request_models.Course_Material, db: db_dependency):
+    db_material = models.Course_material(**new_material.dict())
+    db.add(db_material)
+    db.commit()
+    db.refresh(db_material)
+    return db_material
+    
 
 @app.get("/sections/{course_id}")
 def get_sections(course_id: UUID, db: Session = Depends(get_db)):
@@ -400,15 +463,88 @@ def get_sections(course_id: UUID, db: Session = Depends(get_db)):
     
     response = []
     for section in sections:
-        response.append(
-            SectionResponse(
-                section_id=section.section_id,
-                section_name=section.section_name,
-                section_description=section.section_description
-            )
-        )
+        materials = db.query(models.Course_material).filter(models.Course_material.section_id == section.section_id).all()
+        material_response = [{"material_name": mat.material_name, "material_path": mat.material_path} for mat in materials]
+
+        response.append({
+            "section_id": section.section_id,
+            "section_name": section.section_name,
+            "section_description": section.section_description,
+            "materials": material_response
+        })
 
     return response
+
+@app.get("/sections-for-quiz/{course_id}")
+def get_sections_for_quiz(course_id: UUID, db: Session = Depends(get_db)):
+    sections = db.query(models.Section).filter(models.Section.course_id == course_id).all()
+    if not sections:
+        raise HTTPException(status_code=404, detail="Sections not found for this course")
+    
+    response = []
+    for section in sections:
+        response.append({
+            "section_id": section.section_id,
+            "section_name": section.section_name,
+        })
+
+    return response
+
+@app.post("/create-quiz")
+def create_quiz(new_quiz: request_models.Quiz, db: db_dependency):
+    quiz = models.Quiz(
+        quiz_name=new_quiz.quiz_name,
+        quiz_duration=new_quiz.quiz_duration,
+        quiz_total_marks=new_quiz.quiz_total_marks,
+        quiz_description=new_quiz.quiz_description,
+        quiz_password=new_quiz.quiz_password,
+        quiz_no_of_questions=new_quiz.quiz_number_of_questions,
+        section_id=new_quiz.section_id
+    )
+    db.add(quiz)
+    db.commit()
+    db.refresh(quiz)
+
+    for question in new_quiz.questions:
+        db_question = models.Question(
+            question=question.questionText,
+            marks=question.questionMarks,
+            question_type=question.questionType,
+            quiz_id=quiz.quiz_id
+        )
+        db.add(db_question)
+        db.commit()
+        db.refresh(db_question)
+
+        if question.questionType == 'mcq':
+            correct_answer = models.Answer(
+                answer=question.correctAnswer,
+                is_correct=True,
+                question_id=db_question.question_id,
+            )
+            db.add(correct_answer)
+            db.commit()
+            db.refresh(correct_answer)
+            for i in range(3):
+                answer_text = None
+                if i == 0:
+                    answer_text = question.answer2
+                elif i == 1:
+                    answer_text = question.answer3
+                elif i == 2:
+                    answer_text = question.answer4
+                
+                if answer_text is not None:
+                    answer = models.Answer(
+                        answer=answer_text,
+                        is_correct=False,
+                        question_id=db_question.question_id,
+                    )
+                    db.add(answer)
+                    db.commit()
+                    db.refresh(answer)
+    
+    return quiz
 
 @app.get("/one-section/{section_id}") 
 def get_section(section_id: UUID, db: Session = Depends(get_db)):
@@ -514,45 +650,60 @@ class LecturersResponse(BaseModel):
     lecturer_nic: str
     lecturer_phone: str
     lecturer_email: str
+
+class LecturerGetResponse(BaseModel):
+    lecturer_id: UUID
+    lecturer_name: str
+    lecturer_nic: str
+    lecturer_phone: str
+    lecturer_email: str
+    lecturer_password: str
+
+class LecturerEditResponse(BaseModel):
+    lecturer_name: str
+    lecturer_nic: str
+    lecturer_phone: str
+    lecturer_email: str
+    lecturer_password: str
+
+class AdminCourses(BaseModel):
+    course_id: UUID
+    course_name: str
+    enrollment_key: str
+    course_description: str
+
+class CourseRequest(BaseModel):
+    course_name: str
+    enrollment_key: str
+    course_description: str
+
+class StudentRequest(BaseModel):
+    student_id: UUID
+    email: str
+
+class CreateStudent(BaseModel):
+    email: str
+    password: str
     
 
 #Admin endpoints
 
-@app.post("/admin/login")
-def login(request: LoginRequest, db: Session = Depends(get_db)):
-    admin = db.query(models.Admin).filter(models.Admin.admin_email == request.email).first()
-
-    if not admin or not request.password == admin.admin_password:
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-
-    access_token = create_access_token(data={"sub": admin.admin_email})
-    return {"access_token": access_token, "token_type": "bearer"}
-
 @app.post("/admin/create_lecturer")
 def create_lecturer(lecturer: Lecturer, db: Session = Depends(get_db)):
-    lecturer = models.Lecturer(**lecturer.dict())
+    hash_password = utils.get_password_hash(lecturer.lecturer_password)
+    lecturer_data = lecturer.dict(exclude={"lecturer_password"})
+    lecturer = models.Lecturer(**lecturer_data, lecturer_password=hash_password)
     db.add(lecturer)
     db.commit()
     db.refresh(lecturer)
     return lecturer
 
-@app.post("/admin/create_student/{semester_id}/{newstudent_id}")
-def create_student(semester_id:UUID,newstudent_id:UUID, student: Student, db: db_dependency):
-    semester = db.query(models.Semester).filter(models.Semester.semester_id == semester_id).first()
-    newStudent = db.query(models.New_student).filter(models.New_student.newStudent_id == newstudent_id).first()
-    if (semester and newStudent):
-        student = models.Student(**student.dict(),semester_id = semester_id,newStudent_id= newstudent_id)
-        db.add(student)
-        db.commit()
-        db.refresh(student)
-    else:
-        raise HTTPException(status_code=400, detail="No data exists")
-        
-    return student
 
 @app.post("/admin/create_admin")
 def create_admin(admin: Admin, db: Session = Depends(get_db)):
-    admin = models.Admin(**admin.dict())
+    hash_password = utils.get_password_hash(admin.admin_password)
+    admin_data = admin.dict(exclude={"admin_password"})
+    admin = models.Admin(**admin_data, admin_password=hash_password)
     db.add(admin)
     db.commit()
     db.refresh(admin)
@@ -572,6 +723,36 @@ def get_lecturers(db: Session = Depends(get_db)):
         ))
     return response
 
+@app.get("/admin/lecturer/{lecturer_id}")
+def get_lecturer(lecturer_id: UUID, db: Session = Depends(get_db)):
+    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_id == lecturer_id).first()
+    if lecturer is None:
+        raise HTTPException(status_code=404, detail="Lecturer not found")
+    return LecturerGetResponse(
+        lecturer_id=lecturer.lecturer_id,
+        lecturer_name=lecturer.lecturer_name,
+        lecturer_nic=lecturer.lecturer_nic,
+        lecturer_phone=lecturer.lecturer_phone,
+        lecturer_email=lecturer.lecturer_email,
+        lecturer_password=lecturer.lecturer_password
+    )
+
+@app.put("/admin/edit_lecturer/{lecturer_id}")
+def edit_lecturer(lecturer_id: UUID, new_lecturer: LecturerEditResponse, db: Session = Depends(get_db)):
+    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_id == lecturer_id).first()
+    if lecturer is None:
+        raise HTTPException(status_code=404, detail="Lecturer not found")
+    
+    lecturer.lecturer_name = new_lecturer.lecturer_name
+    lecturer.lecturer_nic = new_lecturer.lecturer_nic
+    lecturer.lecturer_phone = new_lecturer.lecturer_phone
+    lecturer.lecturer_email = new_lecturer.lecturer_email
+    lecturer.lecturer_password = new_lecturer.lecturer_password
+    db.commit()
+    db.refresh(lecturer)
+
+    return lecturer
+
 @app.delete("/admin/delete_lecturer/{lecturer_id}")
 def delete_lecturer(lecturer_id: UUID, db: Session = Depends(get_db)):
     lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_id == lecturer_id).first()
@@ -581,19 +762,117 @@ def delete_lecturer(lecturer_id: UUID, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Lecturer deleted successfully"}
 
+@app.get("/admin/courses", response_model=List[AdminCourses])
+def get_courses(db: Session = Depends(get_db)):
+    courses = db.query(models.Course).all()
+    response = []
+    for course in courses:
+        response.append(AdminCourses(
+            course_id=course.course_id,
+            course_name=course.course_name,
+            enrollment_key=course.enrollment_key,
+            course_description=course.course_description
+        ))
+    return response
+
+@app.get("/admin/course/{course_id}")
+def get_course(course_id: UUID, db: Session = Depends(get_db)):
+    course = db.query(models.Course).filter(models.Course.course_id == course_id).first()
+    if course is None:
+        raise HTTPException(status_code=404, detail="Course not found")
+    return AdminCourses(
+        course_id=course.course_id,
+        course_name=course.course_name,
+        enrollment_key=course.enrollment_key,
+        course_description=course.course_description
+    )
+
+@app.delete("/admin/delete_course/{course_id}")
+def delete_course(course_id: UUID, db: Session = Depends(get_db)):
+    course = db.query(models.Course).filter(models.Course.course_id == course_id).first()
+    if course is None:
+        raise HTTPException(status_code=404, detail="Course not found")
+    db.delete(course)
+    db.commit()
+    return {"message": "Course deleted successfully"}
+
+@app.post("/admin/create_course")
+def create_course(course: CourseRequest, db: Session = Depends(get_db)):
+    course = models.Course(**course.dict())
+    db.add(course)
+    db.commit()
+    db.refresh(course)
+    return course
+
+@app.put("/admin/edit_course/{course_id}")
+def edit_course(course_id: UUID, new_course: CourseRequest, db: Session = Depends(get_db)):
+    course = db.query(models.Course).filter(models.Course.course_id == course_id).first()
+    if course is None:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    course.course_name = new_course.course_name
+    course.enrollment_key = new_course.enrollment_key
+    course.course_description = new_course.course_description
+    db.commit()
+    db.refresh(course)
+
+    return course
+
+@app.get("/admin/students", response_model=List[StudentRequest])
+def get_students(db: Session = Depends(get_db)):
+    students = db.query(models.Student).all()
+    response = []
+    for student in students:
+        response.append(StudentRequest(
+            student_id=student.student_id,
+            email=student.email
+        ))
+    return response
+
+@app.delete("/admin/delete_student/{student_id}")
+def delete_student(student_id: UUID, db: Session = Depends(get_db)):
+    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    if student is None:
+        raise HTTPException(status_code=404, detail="Student not found")
+    db.delete(student)
+    db.commit()
+    return {"message": "Student deleted successfully"}
+
+@app.post("/admin/create_student")
+def create_student(student: request_models.Student, db: Session = Depends(get_db)):
+    hash_password = utils.get_password_hash(student.password)
+    student_data = student.dict(exclude={"password"})
+    student = models.Student(**student_data, password=hash_password)
+    db.add(student)
+    db.commit()
+    db.refresh(student)
+    return student
+
+
+@app.get("/admin/student/{student_id}")
+def get_student(student_id: UUID, db: Session = Depends(get_db)):
+    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    if student is None:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return CreateStudent(
+        email=student.email,
+        password=student.password
+    )
+
+@app.put("/admin/edit_student/{student_id}")
+def edit_student(student_id: UUID, new_student: CreateStudent, db: Session = Depends(get_db)):
+    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    if student is None:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    student.email = new_student.email
+    student.password = new_student.password
+    db.commit()
+    db.refresh(student)
+
+    return student
 
 #Student endpoints
-
-#student login
-@app.post("/student/login")
-def login(request: LoginRequest, db: Session = Depends(get_db)):
-    student = db.query(models.Student).filter(models.Student.email == request.email).first()
-
-    if not student or not request.password == student.password:
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-
-    access_token = create_access_token(data={"sub": student.email})
-    return {"access_token": access_token, "token_type": "bearer"}
 
 #student profile
 @app.get("/student/profile/{email}")

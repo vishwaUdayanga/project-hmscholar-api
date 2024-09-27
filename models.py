@@ -70,6 +70,13 @@ class Student(Base):
     semester_id=Column(UUID,ForeignKey("semester.semester_id"), index=True)
     newStudent_id=Column(UUID, ForeignKey("new_student.newStudent_id"),index=True)
 
+class Student_enrolled_course(Base):
+    __tablename__ = 'student_enrolled_courses'
+    course_id=Column(UUID,ForeignKey("course.course_id"),index=True,primary_key=True,)
+    student_id=Column(UUID,ForeignKey("student.student_id"),index=True,primary_key=True,)
+    semester_id=Column(UUID,ForeignKey("semester.semester_id"), primary_key=True, index=True )
+
+
 class Course_semester_program(Base):
     __tablename__ = 'course_semester_program'
     program_id=Column(UUID, ForeignKey("program.program_id"),index=True,primary_key=True)
@@ -86,6 +93,7 @@ class Lecturer(Base):
     lecturer_phone=Column(String,index=True)
     lecturer_email=Column(String,index=True)
     lecturer_password=Column(String,index=True)
+    lecturer_image=Column(String,index=True, default=None)
 
 class Lecturer_assigned_for (Base):
     __tablename__ = ' lecturer_assigned_for'
@@ -108,12 +116,38 @@ class Course_announcement(Base):
     announcement_description=Column(String,index=True)
     course_id=Column(UUID, ForeignKey("course.course_id"),index=True)
 
-class Student_enrolled_course(Base):
-    __tablename__ = 'student_enrolled_courses'
-    course_id=Column(UUID,ForeignKey("course.course_id"),index=True,primary_key=True,)
-    student_id=Column(UUID,ForeignKey("student.student_id"),index=True,primary_key=True,)
-    semester_id=Column(UUID,ForeignKey("semester.semester_id"), primary_key=True, index=True )
+class Course_material(Base):
+    __tablename__ = 'course_material'
+    material_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
+    material_name=Column(String,index=True)
+    material_path=Column(String,index=True)
+    section_id=Column(UUID, ForeignKey("section.section_id"),index=True)
 
+class Quiz(Base):
+    __tablename__ = 'quiz'
+    quiz_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
+    quiz_name=Column(String,index=True)
+    quiz_duration=Column(Integer,index=True)
+    quiz_total_marks=Column(Integer,index=True)
+    quiz_description=Column(String,index=True)
+    quiz_password=Column(String,index=True)
+    quiz_no_of_questions=Column(Integer,index=True)
+    section_id=Column(UUID, ForeignKey("section.section_id"),index=True)
+
+class Question(Base):
+    __tablename__ = 'question'
+    question_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
+    question=Column(String,index=True)
+    marks=Column(Integer,index=True)
+    question_type=Column(String,index=True)
+    quiz_id=Column(UUID, ForeignKey("quiz.quiz_id"),index=True)
+
+class Answer(Base):
+    __tablename__ = 'answer'
+    answer_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
+    answer=Column(String,index=True)
+    is_correct=Column(Boolean,index=True)
+    question_id=Column(UUID, ForeignKey("question.question_id"),index=True)
 
 
 
