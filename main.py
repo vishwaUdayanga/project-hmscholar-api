@@ -452,13 +452,16 @@ def get_sections(course_id: UUID, db: Session = Depends(get_db)):
     response = []
     for section in sections:
         materials = db.query(models.Course_material).filter(models.Course_material.section_id == section.section_id).all()
+        quizzes = db.query(models.Quiz).filter(models.Quiz.section_id == section.section_id).all()
         material_response = [{"material_name": mat.material_name, "material_path": mat.material_path} for mat in materials]
+        quiz_response = [{"quiz_id": quiz.quiz_id, "quiz_name": quiz.quiz_name} for quiz in quizzes]
 
         response.append({
             "section_id": section.section_id,
             "section_name": section.section_name,
             "section_description": section.section_description,
-            "materials": material_response
+            "materials": material_response,
+            "quizzes": quiz_response
         })
 
     return response
