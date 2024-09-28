@@ -13,6 +13,7 @@ import os
 from dotenv import load_dotenv
 import utils
 import request_models
+import response_models
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -453,7 +454,7 @@ def get_sections(course_id: UUID, db: Session = Depends(get_db)):
     for section in sections:
         materials = db.query(models.Course_material).filter(models.Course_material.section_id == section.section_id).all()
         quizzes = db.query(models.Quiz).filter(models.Quiz.section_id == section.section_id).all()
-        material_response = [{"material_name": mat.material_name, "material_path": mat.material_path} for mat in materials]
+        material_response = [{"material_id": mat.material_id , "material_name": mat.material_name, "material_path": mat.material_path} for mat in materials]
         quiz_response = [{"quiz_id": quiz.quiz_id, "quiz_name": quiz.quiz_name} for quiz in quizzes]
 
         response.append({
@@ -537,6 +538,158 @@ def create_quiz(new_quiz: request_models.Quiz, db: db_dependency):
     
     return quiz
 
+@app.get("/get-quiz/{quiz_id}")
+def get_quiz(quiz_id: UUID, db: Session = Depends(get_db)):
+    quiz = db.query(models.Quiz).filter(models.Quiz.quiz_id == quiz_id).first()
+    if quiz is None:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    
+    questions = db.query(models.Question).filter(models.Question.quiz_id == quiz_id).all()
+    response = []
+    for question in questions:
+        answers = db.query(models.Answer).filter(models.Answer.question_id == question.question_id).all()
+        
+        correct_answer = None
+        answer2 = None
+        answer3 = None
+        answer4 = None
+
+        mcq_answers = []
+        for answer in answers:
+            if answer.is_correct:
+                correct_answer = answer.answer
+            else:
+                mcq_answers.append(answer.answer)
+        if len(mcq_answers) >= 1:
+            answer2 = mcq_answers[0]
+        if len(mcq_answers) >= 2:
+            answer3 = mcq_answers[1]
+        if len(mcq_answers) >= 3:
+            answer4 = mcq_answers[2]
+
+            response.append({
+                "questionText": question.question,
+                "questionMarks": question.marks,
+                "questionType": question.question_type,
+                "correctAnswer": correct_answer,
+                "answer2": answer2,
+                "answer3": answer3,
+                "answer4": answer4,
+            })
+        else:
+            response.append({
+                "questionText": question.question,
+                "questionMarks": question.marks,
+                "questionType": question.question_type,
+            })
+    
+    course_id = db.query(models.Section).filter(models.Section.section_id == quiz.section_id).first().course_id
+
+    return {
+        "quiz_id": quiz.quiz_id,
+        "course_id": course_id,
+        "quiz_name": quiz.quiz_name,
+        "quiz_duration": quiz.quiz_duration,
+        "quiz_total_marks": quiz.quiz_total_marks,
+        "quiz_description": quiz.quiz_description,
+        "quiz_password": quiz.quiz_password,
+        "quiz_number_of_questions": quiz.quiz_no_of_questions,
+        "section_id": quiz.section_id,
+        "questions": response
+    }
+
+
+@app.put("/edit-quiz/{quiz_id}")
+def edit_quiz(quiz_id: UUID, new_quiz: request_models.Quiz, db: db_dependency):
+    quiz = db.query(models.Quiz).filter(models.Quiz.quiz_id == quiz_id).first()
+    if quiz is None:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    
+    quiz.quiz_name = new_quiz.quiz_name
+    quiz.quiz_duration = new_quiz.quiz_duration
+    quiz.quiz_total_marks = new_quiz.quiz_total_marks
+    quiz.quiz_description = new_quiz.quiz_description
+    quiz.quiz_password = new_quiz.quiz_password
+    quiz.quiz_no_of_questions = new_quiz.quiz_number_of_questions
+    db.commit()
+    db.refresh(quiz)
+
+    questions = db.query(models.Question).filter(models.Question.quiz_id == quiz_id).all()
+    for question in questions:
+        db.query(models.Answer).filter(models.Answer.question_id == question.question_id).delete()
+        db.commit()
+        db.delete(question)
+    db.commit()
+
+    for question in new_quiz.questions:
+        db_question = models.Question(
+            question=question.questionText,
+            marks=question.questionMarks,
+            question_type=question.questionType,
+            quiz_id=quiz.quiz_id
+        )
+        db.add(db_question)
+        db.commit()
+        db.refresh(db_question)
+
+        if question.questionType == 'mcq':
+            correct_answer = models.Answer(
+                answer=question.correctAnswer,
+                is_correct=True,
+                question_id=db_question.question_id,
+            )
+            db.add(correct_answer)
+            db.commit()
+            db.refresh(correct_answer)
+            for i in range(3):
+                answer_text = None
+                if i == 0:
+                    answer_text = question.answer2
+                elif i == 1:
+                    answer_text = question.answer3
+                elif i == 2:
+                    answer_text = question.answer4
+                
+                if answer_text is not None:
+                    answer = models.Answer(
+                        answer=answer_text,
+                        is_correct=False,
+                        question_id=db_question.question_id,
+                    )
+                    db.add(answer)
+                    db.commit()
+                    db.refresh(answer)
+    
+    return quiz
+
+@app.put('/edit-lecturer-image/{lecturer_id}')
+def edit_lecturer_image(lecturer_id: UUID, new_image: request_models.EditLecturerImage, db: db_dependency):
+    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_id == lecturer_id).first()
+    if lecturer is None:
+        raise HTTPException(status_code=404, detail="Lecturer not found")
+    
+    lecturer.lecturer_image = new_image.lecturer_image
+    db.commit()
+    db.refresh(lecturer)
+
+    return lecturer
+
+@app.put("/edit-lecturer/{lecturer_id}")
+def edit_lecturer(lecturer_id: UUID, new_lecturer: request_models.LecturerEdit, db: db_dependency):
+    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_id == lecturer_id).first()
+    if lecturer is None:
+        raise HTTPException(status_code=404, detail="Lecturer not found")
+    
+    lecturer.lecturer_name = new_lecturer.lecturer_name
+    lecturer.lecturer_nic = new_lecturer.lecturer_nic
+    lecturer.lecturer_phone = new_lecturer.lecturer_phone
+    lecturer.lecturer_email = new_lecturer.lecturer_email
+    db.commit()
+    db.refresh(lecturer)
+
+    return lecturer
+
+
 @app.get("/one-section/{section_id}") 
 def get_section(section_id: UUID, db: Session = Depends(get_db)):
     section = db.query(models.Section).filter(models.Section.section_id == section_id).first()
@@ -550,7 +703,7 @@ def get_section(section_id: UUID, db: Session = Depends(get_db)):
     )
 
 @app.put("/edit-section/{section_id}")
-def edit_section(section_id: UUID, new_section: SectionEdit, db: db_dependency):
+def edit_section(section_id: UUID, new_section: request_models.SectionEdit, db: db_dependency):
     section = db.query(models.Section).filter(models.Section.section_id == section_id).first()
     if section is None:
         raise HTTPException(status_code=404, detail="Section not found")
@@ -632,6 +785,39 @@ def delete_announcement(announcement_id: UUID, db: db_dependency):
     db.delete(announcement)
     db.commit()
     return {"message": "Announcement deleted successfully"}
+
+@app.get("/get-material/{material_id}")
+def get_material(material_id: UUID, db: Session = Depends(get_db)):
+    material = db.query(models.Course_material).filter(models.Course_material.material_id == material_id).first()
+    if material is None:
+        raise HTTPException(status_code=404, detail="Material not found")
+    return response_models.MaterialResponse(
+        material_name=material.material_name,
+        material_path=material.material_path
+    )
+
+@app.put("/edit-material/{material_id}")
+def edit_material(material_id: UUID, new_material: request_models.EditCourseMaterial, db: db_dependency):
+    material = db.query(models.Course_material).filter(models.Course_material.material_id == material_id).first()
+    if material is None:
+        raise HTTPException(status_code=404, detail="Material not found")
+    
+    material.material_name = new_material.material_name
+    material.material_path = new_material.material_path
+    db.commit()
+    db.refresh(material)
+
+    return material
+
+@app.delete("/delete-material/{material_id}")
+def delete_material(material_id: UUID, db: db_dependency):
+    material = db.query(models.Course_material).filter(models.Course_material.material_id == material_id).first()
+    if material is None:
+        raise HTTPException(status_code=404, detail="Material not found")
+    
+    db.delete(material)
+    db.commit()
+    return {"message": "Material deleted successfully"}
 
 #Admin classes
 

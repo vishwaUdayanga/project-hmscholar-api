@@ -16,6 +16,10 @@ class Course_Material(BaseModel):
     material_path: str
     section_id: UUID
 
+class EditCourseMaterial(BaseModel):
+    material_name: str
+    material_path: str
+
 class Question(BaseModel):
     questionText: str
     questionMarks: int
@@ -40,6 +44,19 @@ class Student(BaseModel):
     password:str
     semester_id:UUID
     newStudent_id:UUID
+
+class SectionEdit(BaseModel):
+    section_name: str
+    section_description: str
+
+class EditLecturerImage(BaseModel):
+    lecturer_image: str
+
+class LecturerEdit(BaseModel):
+    lecturer_name: str
+    lecturer_nic: str
+    lecturer_phone: str
+    lecturer_email: str
 
 
 
