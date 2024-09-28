@@ -40,6 +40,21 @@ class Student(BaseModel):
     password:str
     semester_id:UUID
     newStudent_id:UUID
+    
+class StudentCourseResponse(BaseModel):
+    course_id: UUID
+    course_name: str
+    year: int
+    enrollment_key: str
+    semester: int
+
+class StudentProfile(BaseModel):
+  student_id:UUID
+  email: str
+  name: str
+  program:str
+  password: str
+  student_image:str
 
 
 

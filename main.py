@@ -81,12 +81,7 @@ class Course_semester_program(BaseModel):
 class Student_enrolled_course(BaseModel):
     enrollment_key:str
 
-class StudentCourseResponse(BaseModel):
-    course_id: UUID
-    course_name: str
-    year: int
-    enrollment_key: str
-    semester: int
+
 class getSemesterCourse(BaseModel):
     course_id: UUID
     semester_id: UUID
@@ -137,7 +132,7 @@ def login_to_portal(request: request_models.Login, db: Session = Depends(get_db)
     admin = db.query(models.Admin).filter(models.Admin.admin_email == request.user_name).first()
 
     if student:
-        if not student.password == request.password:
+        if not utils.verify_password(request.password, student.password):
             raise HTTPException(status_code=400, detail="Incorrect username or password")
         access_token = create_access_token(data={"sub": student.email, "password": student.password, "type": "student"})
         return {"access_token": access_token, "token_type": "bearer", "student_id": student.student_id, "type": "student"}
@@ -859,6 +854,7 @@ def get_student(student_id: UUID, db: Session = Depends(get_db)):
         password=student.password
     )
 
+
 @app.put("/admin/edit_student/{student_id}")
 def edit_student(student_id: UUID, new_student: CreateStudent, db: Session = Depends(get_db)):
     student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
@@ -872,102 +868,7 @@ def edit_student(student_id: UUID, new_student: CreateStudent, db: Session = Dep
 
     return student
 
-#Student endpoints
-
-#student profile
-@app.get("/student/profile/{email}")
-def get_profile(email: str, db: Session = Depends(get_db)):
-    student_profile = db.query(models.Student).filter(models.Student.email == email).first()
-    if not student_profile:
-        raise HTTPException(status_code=404, detail="Student profile not found")
-    return student_profile
-
-#change email
-@app.put("/student/edit-email/{student_id}")
-def edit_student(student_id: UUID, new_student: StudentEditEmail, db: Session = Depends(get_db)):
-    Student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
-    if Student is None:
-        raise HTTPException(status_code=404, detail="Announcement not found")
-    
-    Student.email = new_student.new_email
-    db.commit()
-    db.refresh(Student)
-
-    return Student
-
-#change password
-@app.put("/student/edit-password/{student_id}")
-def edit_student(student_id: UUID, new_student: StudentEditPassword, db: Session = Depends(get_db)):
-    Student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
-    if Student is None:
-        raise HTTPException(status_code=404, detail="Announcement not found")
-    if Student.password == new_student.old_password:
-        Student.password = new_student.new_password
-    else:
-        raise HTTPException(status_code=404, detail="Announcement not found")        
-    db.commit()
-    db.refresh(Student)
-
-    return Student
-
-#Get courses students are registered in
-@app.get("/student/course/{student_id}",response_model=List[StudentCourseResponse])
-def get_course( student_id:UUID, db:db_dependency):
-    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
-    enrolled_courses = (
-        db.query(models.Course_semester_program, models.Course, models.Semester).filter(models.Course_semester_program.semester_id == student.semester_id)
-        .join(models.Course, models.Course.course_id == models.Course_semester_program.course_id)
-        .join(models.Semester, models.Semester.semester_id == student.semester_id)
-        .all()
-    )
-
-    if not enrolled_courses:
-        raise HTTPException(status_code=404, detail="Courses not found for this student")
-    
-    response = []
-    for enrollment in enrolled_courses: 
-        response.append(
-            StudentCourseResponse(
-                course_id=enrollment.Course.course_id,
-                course_name=enrollment.Course.course_name,
-                year=enrollment.Semester.year,
-                enrollment_key=enrollment.Course.enrollment_key,
-                semester=enrollment.Semester.semester,
-            )
-        )
-
-    return response
-
-#Get courses students are registered in but not in current sem
-@app.get("/student/courses_not_in_semester/{student_id}",response_model=List[StudentCourseResponse])
-def get_course( student_id:UUID, db:db_dependency):
-    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
-    enrolled_courses = (
-        db.query(models.Student_enrolled_course, models.Course, models.Semester).filter(models.Student_enrolled_course.student_id == student_id).filter(models.Student_enrolled_course.semester_id!= student.semester_id)
-        .join(models.Course, models.Course.course_id == models.Student_enrolled_course.course_id)
-        .join(models.Semester, models.Semester.semester_id == models.Student_enrolled_course.semester_id)
-        .all()
-    )
-
-    if not enrolled_courses:
-        raise HTTPException(status_code=404, detail="Courses not found for this student")
-    
-    response = []
-    for enrollment in enrolled_courses: 
-        response.append(
-            StudentCourseResponse(
-                course_id=enrollment.Course.course_id,
-                course_name=enrollment.Course.course_name,
-                year=enrollment.Semester.year,
-                enrollment_key=enrollment.Course.enrollment_key,
-                semester=enrollment.Semester.semester,
-            )
-        )
-
-    return response
-
-#Get courses students are registered in
-@app.get("/student/course_program/{student_id}", response_model=List[StudentCourseResponse])
+@app.get("/student/course_program/{student_id}", response_model=List[request_models.StudentCourseResponse])
 def get_course(student_id: UUID, db: db_dependency):
     student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
     if not student:
@@ -992,7 +893,167 @@ def get_course(student_id: UUID, db: db_dependency):
         .all()
     )
     not_enrolled_courses = [
-        StudentCourseResponse(
+        request_models.StudentCourseResponse(
+            course_id=course.Course.course_id,
+            course_name=course.Course.course_name,
+            year=course.Semester.year,
+            enrollment_key=course.Course.enrollment_key,
+            semester=course.Semester.semester
+        )
+        for course in available_courses if course.Course.course_id not in enrolled_course_ids
+    ]
+
+    if not not_enrolled_courses:
+        raise HTTPException(status_code=404, detail="No available courses found for this student")
+
+    return not_enrolled_courses
+
+
+#Student endpoints
+
+# student profile
+@app.get("/student/profile/{search_email}", response_model=request_models.StudentProfile)
+def get_profile(search_email: str, db: Session = Depends(get_db)):
+    student = db.query(models.Student).filter(models.Student.email == search_email).first()
+
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    student_profile = (db.query(models.New_student)
+                       .filter(models.New_student.newStudent_id == student.newStudent_id)
+                       .first())
+    
+    if not student_profile:
+        raise HTTPException(status_code=404, detail="Student profile not found")
+    
+    program = db.query(models.Program).filter(models.Program.program_id ==student_profile.program_id).first()
+    student_image = student.image_path if student.image_path else "/dashboard/announcements/user.jpg"
+
+    student_response = request_models.StudentProfile(
+    email=search_email,
+    name=student_profile.name,
+    program=program.program_name,  # Ensure this attribute exists in New_student
+    password=student.password,  # Password should be handled securely; consider not exposing it
+    student_id=student.student_id,
+    student_image=student_image
+    )
+
+    return student_response
+
+
+
+
+#change email
+@app.put("/student/edit-email/{student_id}")
+def edit_student(student_id: UUID, new_student: StudentEditEmail, db: Session = Depends(get_db)):
+    Student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    if Student is None:
+        raise HTTPException(status_code=404, detail="Announcement not found")
+    
+    Student.email = new_student.new_email
+    db.commit()
+    db.refresh(Student)
+
+    return Student
+
+#change password
+@app.put("/student/edit-password/{student_id}")
+def edit_student(student_id: UUID, new_student: StudentEditPassword, db: Session = Depends(get_db)):
+    Student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    if Student is None:
+        raise HTTPException(status_code=404, detail="student not found")
+    if utils.verify_password(new_student.old_password, Student.password):
+        Student.password = utils.get_password_hash(new_student.new_password)
+    else:
+        raise HTTPException(status_code=404, detail="student not found")        
+    db.commit()
+    db.refresh(Student)
+
+    return Student
+
+#Get courses students are registered in
+@app.get("/student/course/{student_id}",response_model=List[request_models.StudentCourseResponse])
+def get_course( student_id:UUID, db:db_dependency):
+    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    enrolled_courses = (
+        db.query(models.Course_semester_program, models.Course, models.Semester).filter(models.Course_semester_program.semester_id == student.semester_id)
+        .join(models.Course, models.Course.course_id == models.Course_semester_program.course_id)
+        .join(models.Semester, models.Semester.semester_id == student.semester_id)
+        .all()
+    )
+
+    if not enrolled_courses:
+        raise HTTPException(status_code=404, detail="Courses not found for this student")
+    
+    response = []
+    for enrollment in enrolled_courses: 
+        response.append(
+            request_models.StudentCourseResponse(
+                course_id=enrollment.Course.course_id,
+                course_name=enrollment.Course.course_name,
+                year=enrollment.Semester.year,
+                enrollment_key=enrollment.Course.enrollment_key,
+                semester=enrollment.Semester.semester,
+            )
+        )
+
+    return response
+
+#Get courses students are registered in but not in current sem
+@app.get("/student/courses_not_in_semester/{student_id}",response_model=List[request_models.StudentCourseResponse])
+def get_course( student_id:UUID, db:db_dependency):
+    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    enrolled_courses = (
+        db.query(models.Student_enrolled_course, models.Course, models.Semester).filter(models.Student_enrolled_course.student_id == student_id).filter(models.Student_enrolled_course.semester_id!= student.semester_id)
+        .join(models.Course, models.Course.course_id == models.Student_enrolled_course.course_id)
+        .join(models.Semester, models.Semester.semester_id == models.Student_enrolled_course.semester_id)
+        .all()
+    )
+
+    if not enrolled_courses:
+        raise HTTPException(status_code=404, detail="Courses not found for this student")
+    
+    response = []
+    for enrollment in enrolled_courses: 
+        response.append(
+            request_models.StudentCourseResponse(
+                course_id=enrollment.Course.course_id,
+                course_name=enrollment.Course.course_name,
+                year=enrollment.Semester.year,
+                enrollment_key=enrollment.Course.enrollment_key,
+                semester=enrollment.Semester.semester,
+            )
+        )
+
+    return response
+
+#Get courses students are registered in
+@app.get("/student/course_program/{student_id}", response_model=List[request_models.StudentCourseResponse])
+def get_course(student_id: UUID, db: db_dependency):
+    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    New_student = db.query(models.New_student).filter(models.New_student.newStudent_id == student.newStudent_id).first()
+    if not New_student:
+        raise HTTPException(status_code=404, detail="New student record not found")
+
+    enrolled_course_ids = ( 
+        db.query(models.Student_enrolled_course.course_id)
+        .filter(models.Student_enrolled_course.student_id == student_id)
+        .all()
+    )
+    enrolled_course_ids = {course[0] for course in enrolled_course_ids}  # Use a set for faster lookups
+
+    available_courses = (
+        db.query(models.Course, models.Semester)
+        .join(models.Course_semester_program, models.Course_semester_program.course_id == models.Course.course_id)
+        .join(models.Semester, models.Semester.semester_id == models.Course_semester_program.semester_id)
+        .filter(models.Course_semester_program.program_id == New_student.program_id).filter(models.Course_semester_program.semester_id != student.semester_id)
+        .all()
+    )
+    not_enrolled_courses = [
+        request_models.StudentCourseResponse(
             course_id=course.Course.course_id,
             course_name=course.Course.course_name,
             year=course.Semester.year,
