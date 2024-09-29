@@ -56,5 +56,13 @@ class StudentProfile(BaseModel):
   password: str
   student_image:str
 
+class AdminAnnouncements(BaseModel):
+    admin_id:UUID
+    admin_name: str
+    title:str
+    description: str
+    admin_image:str
+
+
 
 

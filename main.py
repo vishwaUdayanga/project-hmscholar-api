@@ -1096,3 +1096,57 @@ def check_course_in_semester(course_id: UUID, student_id: UUID, db: db_dependenc
     student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
     course  = db.query(models.Course_semester_program).filter(models.Course_semester_program.semester_id == student.semester_id).filter(models.Course_semester_program.course_id == course_id).first()
     return course
+
+#Get courses students are registered in
+@app.get("/student/all-enrolled-courses/{student_id}", response_model=List[request_models.StudentCourseResponse])
+def get_enrolled_courses(student_id: UUID, db: db_dependency):
+    enrolled_courses = (
+        db.query(models.Student_enrolled_course, models.Course, models.Semester)
+        .join(models.Course, models.Course.course_id == models.Student_enrolled_course.course_id)
+        .join(models.Semester, models.Semester.semester_id == models.Student_enrolled_course.semester_id)
+        .filter(models.Student_enrolled_course.student_id == student_id)
+        .all()
+    )
+
+    if not enrolled_courses:
+        raise HTTPException(status_code=404, detail="Courses not found for this lecturer")
+    
+    response = []
+    for course in enrolled_courses: 
+        response.append(
+            request_models.StudentCourseResponse(
+                course_id=course.Course.course_id,
+                course_name=course.Course.course_name,
+                year=course.Semester.year,
+                enrollment_key=course.Course.enrollment_key,
+                semester=course.Semester.semester,
+            )
+        )
+
+    return response
+
+#admin announcement
+@app.get("/student/admin-announcements", response_model=List[request_models.AdminAnnouncements])
+def get_enrolled_courses(db: db_dependency):
+    annoucements = (
+        db.query(models.AdminAnnouncement, models.Admin)
+        .join(models.Admin, models.Admin.admin_id == models.AdminAnnouncement.admin_id)
+        .all()
+    )
+
+    if not annoucements:
+        raise HTTPException(status_code=404, detail="Courses not found for this lecturer")
+    
+    response = []
+    for annnoucement in annoucements: 
+        response.append(
+            request_models.AdminAnnouncements(
+                admin_id=annnoucement.Admin.admin_id,
+                admin_name=annnoucement.Admin.admin_name,
+                title=annnoucement.AdminAnnouncement.title,
+                description=annnoucement.AdminAnnouncement.description,
+                admin_image="/dashboard/announcements/user.jpg"
+            )
+        )
+
+    return response

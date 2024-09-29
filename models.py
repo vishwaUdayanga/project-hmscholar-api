@@ -150,6 +150,13 @@ class Answer(Base):
     is_correct=Column(Boolean,index=True)
     question_id=Column(UUID, ForeignKey("question.question_id"),index=True)
 
+class AdminAnnouncement(Base):
+    __tablename__ ='admin_announcement'
+    announcement_id=Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    title=Column(String,index=True)
+    description=Column(String,index=True) 
+    admin_id=Column(UUID, ForeignKey("admin.admin_id"),index=True)
+
 
 
 
