@@ -42,4 +42,7 @@ class Student(BaseModel):
     newStudent_id:UUID
 
 
-
+##admin request models
+class AdminAnnouncement(BaseModel):
+    title: str
+    description: str

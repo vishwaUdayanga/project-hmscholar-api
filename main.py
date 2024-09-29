@@ -272,6 +272,8 @@ class Lecturer(BaseModel):
     lecturer_email: str
     lecturer_password: str
 
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str
@@ -686,6 +688,13 @@ def create_lecturer(lecturer: Lecturer, db: Session = Depends(get_db)):
     db.refresh(lecturer)
     return lecturer
 
+@app.post("/admin/create_admin_announcement")
+def create_admin_announcement(adminAnnouncement: request_models.AdminAnnouncement, db: Session = Depends(get_db)):
+    announcement=models.AdminAnnouncement(**adminAnnouncement.dict())
+    db.add(announcement)
+    db.commit()
+    db.refresh(announcement)
+    return announcement
 
 @app.post("/admin/create_admin")
 def create_admin(admin: Admin, db: Session = Depends(get_db)):
