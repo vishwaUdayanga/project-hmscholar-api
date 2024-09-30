@@ -46,3 +46,4 @@ class Student(BaseModel):
 class AdminAnnouncement(BaseModel):
     title: str
     description: str
+    admin_id: UUID

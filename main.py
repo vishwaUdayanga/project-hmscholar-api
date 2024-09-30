@@ -696,6 +696,13 @@ def create_admin_announcement(adminAnnouncement: request_models.AdminAnnouncemen
     db.refresh(announcement)
     return announcement
 
+@app.get("/admin/by-email/{email}")
+def get_admin_by_email(email: str, db: Session = Depends(get_db)):
+    admin = db.query(models.Admin).filter(models.Admin.admin_email == email).first()
+    if admin is None:
+        raise HTTPException(status_code=404, detail="Admin not found")
+    return admin.admin_id
+
 @app.post("/admin/create_admin")
 def create_admin(admin: Admin, db: Session = Depends(get_db)):
     hash_password = utils.get_password_hash(admin.admin_password)
