@@ -47,3 +47,8 @@ class AdminAnnouncement(BaseModel):
     title: str
     description: str
     admin_id: UUID
+
+class AdminEditAnnouncement(BaseModel):
+    title: str
+    description: str
+

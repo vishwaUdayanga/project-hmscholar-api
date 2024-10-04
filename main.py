@@ -696,6 +696,47 @@ def create_admin_announcement(adminAnnouncement: request_models.AdminAnnouncemen
     db.refresh(announcement)
     return announcement
 
+@app.get("/admin/announcements")
+def get_admin_announcements(db: Session = Depends(get_db)):
+    announcements = db.query(models.AdminAnnouncement).all()
+    return announcements
+
+@app.get("/admin/announcement/{announcement_id}")
+def get_admin_announcement(announcement_id: UUID, db: Session = Depends(get_db)):
+    announcement = db.query(models.AdminAnnouncement).filter(models.AdminAnnouncement.announcement_id == announcement_id).first()
+    if announcement is None:
+        raise HTTPException(status_code=404, detail="Announcement not found")
+    return announcement
+
+class AnnouncementResponse(BaseModel):
+    announcement_id: UUID
+    title: str
+    description: str
+    admin_id: UUID
+
+@app.delete("/admin/delete_announcement/{announcement_id}")
+def delete_announcement(announcement_id: UUID, db: Session = Depends(get_db)):
+    announcement = db.query(models.AdminAnnouncement).filter(models.AdminAnnouncement.announcement_id == announcement_id).first()
+    if announcement is None:
+        raise HTTPException(status_code=404, detail="Announcement not found")
+    db.delete(announcement)
+    db.commit()
+    return {"message": "Announcement deleted successfully"}
+
+@app.put("/admin/edit_announcement/{announcement_id}")
+def edit_announcement(announcement_id: UUID, new_announcement: request_models.AdminEditAnnouncement, db: Session = Depends(get_db)):
+    announcement = db.query(models.AdminAnnouncement).filter(models.AdminAnnouncement.announcement_id == announcement_id).first()
+    if announcement is None:
+        raise HTTPException(status_code=404, detail="Announcement not found")
+    
+    announcement.title = new_announcement.title
+    announcement.description = new_announcement.description
+    db.commit()
+    db.refresh(announcement)
+
+    return announcement
+
+
 @app.get("/admin/by-email/{email}")
 def get_admin_by_email(email: str, db: Session = Depends(get_db)):
     admin = db.query(models.Admin).filter(models.Admin.admin_email == email).first()
