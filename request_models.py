@@ -81,5 +81,8 @@ class LecturerEdit(BaseModel):
     lecturer_phone: str
     lecturer_email: str
 
+class EditStudentImage(BaseModel):
+    student_img: str
+
 
 

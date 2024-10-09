@@ -1339,3 +1339,15 @@ def get_enrolled_courses(db: db_dependency):
         )
 
     return response
+
+#edit Image
+@app.put('/edit-student-image/{student_id}')
+def edit_student_image(student_id: UUID, new_image: request_models.EditStudentImage, db: db_dependency):
+    lecturer = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    if lecturer is None:
+        raise HTTPException(status_code=404, detail="Lecturer not found")
+    
+    lecturer.image_path = new_image.student_img
+    db.commit()
+    db.refresh(lecturer)
+    return lecturer
