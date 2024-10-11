@@ -81,8 +81,13 @@ class LecturerEdit(BaseModel):
     lecturer_phone: str
     lecturer_email: str
 
-class EditStudentImage(BaseModel):
-    student_img: str
+class CourseSettings(BaseModel):
+    course_name: str
+    enrollment_key: str
+    course_description: str
+    course_image: Optional[str] = None
+
+    
 
 
 

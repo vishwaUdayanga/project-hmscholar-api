@@ -295,6 +295,7 @@ class CourseResponse(BaseModel):
     course_name: str
     year: int
     enrollment_key: str
+    course_image: str | None
     semester: int
     lecturer_name: str
 
@@ -406,6 +407,7 @@ def get_assigned_courses(lecturer_id: UUID, db: Session = Depends(get_db)):
                 course_name=assignment.Course.course_name,
                 year=assignment.Semester.year,
                 enrollment_key=assignment.Course.enrollment_key,
+                course_image=assignment.Course.course_image,
                 semester=assignment.Semester.semester,
                 lecturer_name=assignment.Lecturer.lecturer_name
             )
@@ -433,6 +435,28 @@ def get_course_name(course_id: UUID, db: Session = Depends(get_db)):
     if course is None:
         raise HTTPException(status_code=404, detail="Course not found")
     return course.course_name
+
+@app.get("/course/settings/{course_id}")
+def get_course_settings(course_id: UUID, db: Session = Depends(get_db)):
+    course = db.query(models.Course).filter(models.Course.course_id == course_id).first()
+    if course is None:
+        raise HTTPException(status_code=404, detail="Course not found")
+    return course
+
+@app.put("/edit-course/{course_id}")
+def edit_course(course_id: UUID, new_course: request_models.CourseSettings, db: db_dependency):
+    course = db.query(models.Course).filter(models.Course.course_id == course_id).first()
+    if course is None:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    course.course_name = new_course.course_name
+    course.enrollment_key = new_course.enrollment_key
+    course.course_description = new_course.course_description
+    course.course_image = new_course.course_image
+    db.commit()
+    db.refresh(course)
+
+    return "Course updated successfully"
 
 @app.post("/add_section")
 def add_section(new_section: request_models.Section, db: db_dependency):
@@ -668,6 +692,16 @@ def edit_quiz(quiz_id: UUID, new_quiz: request_models.Quiz, db: db_dependency):
                     db.refresh(answer)
     
     return quiz
+
+@app.delete("/delete-quiz/{quiz_id}")
+def delete_quiz(quiz_id: UUID, db: db_dependency):
+    quiz = db.query(models.Quiz).filter(models.Quiz.quiz_id == quiz_id).first()
+    if quiz is None:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    
+    db.delete(quiz)
+    db.commit()
+    return {"message": "Quiz deleted successfully"}
 
 @app.put('/edit-lecturer-image/{lecturer_id}')
 def edit_lecturer_image(lecturer_id: UUID, new_image: request_models.EditLecturerImage, db: db_dependency):
