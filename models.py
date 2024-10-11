@@ -25,6 +25,7 @@ class Course(Base):
     course_name=Column(String,index=True)
     enrollment_key=Column(String,index=True)
     course_description=Column(String,index=True)
+    course_image=Column(String,index=True)
 
 class Program(Base):
     __tablename__ = 'program'
@@ -85,6 +86,14 @@ class Course_semester_program(Base):
     course_id=Column(UUID, ForeignKey("course.course_id"),index=True,primary_key=True)
     semester_id=Column(UUID, ForeignKey("semester.semester_id"),index=True,primary_key=True)
 
+class AdminAnnouncement(Base):
+    __tablename__ ='admin_announcement'
+
+    announcement_id=Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    title=Column(String,index=True)
+    description=Column(String,index=True)
+    admin_id=Column(UUID, ForeignKey("admin.admin_id"),index=True)
+
 #Lecturer models
 
 class Lecturer(Base):
@@ -109,21 +118,21 @@ class Section(Base):
     section_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
     section_name=Column(String,index=True)
     section_description=Column(String,index=True)
-    course_id=Column(UUID, ForeignKey("course.course_id"),index=True)
+    course_id=Column(UUID, ForeignKey("course.course_id", ondelete="CASCADE"),index=True)
 
 class Course_announcement(Base):
     __tablename__ = 'course_announcement'
     announcement_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
     announcement_title=Column(String,index=True)
     announcement_description=Column(String,index=True)
-    course_id=Column(UUID, ForeignKey("course.course_id"),index=True)
+    course_id=Column(UUID, ForeignKey("course.course_id", ondelete="CASCADE"),index=True)
 
 class Course_material(Base):
     __tablename__ = 'course_material'
     material_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
     material_name=Column(String,index=True)
     material_path=Column(String,index=True)
-    section_id=Column(UUID, ForeignKey("section.section_id"),index=True)
+    section_id=Column(UUID, ForeignKey("section.section_id", ondelete="CASCADE"),index=True)
 
 class Quiz(Base):
     __tablename__ = 'quiz'
@@ -134,7 +143,7 @@ class Quiz(Base):
     quiz_description=Column(String,index=True)
     quiz_password=Column(String,index=True)
     quiz_no_of_questions=Column(Integer,index=True)
-    section_id=Column(UUID, ForeignKey("section.section_id"),index=True)
+    section_id=Column(UUID, ForeignKey("section.section_id", ondelete="CASCADE"),index=True)
 
 class Question(Base):
     __tablename__ = 'question'
@@ -142,14 +151,14 @@ class Question(Base):
     question=Column(String,index=True)
     marks=Column(Integer,index=True)
     question_type=Column(String,index=True)
-    quiz_id=Column(UUID, ForeignKey("quiz.quiz_id"),index=True)
+    quiz_id=Column(UUID, ForeignKey("quiz.quiz_id", ondelete="CASCADE"),index=True)
 
 class Answer(Base):
     __tablename__ = 'answer'
     answer_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
     answer=Column(String,index=True)
     is_correct=Column(Boolean,index=True)
-    question_id=Column(UUID, ForeignKey("question.question_id"),index=True)
+    question_id=Column(UUID, ForeignKey("question.question_id", ondelete="CASCADE"),index=True)
 
 
 
