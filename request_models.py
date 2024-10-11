@@ -41,5 +41,11 @@ class Student(BaseModel):
     semester_id:UUID
     newStudent_id:UUID
 
+class StPorProgram(BaseModel):
+    program_id: UUID
+    program_name: str
+    duration: str
+
+
 
 

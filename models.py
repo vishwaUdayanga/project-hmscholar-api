@@ -31,6 +31,7 @@ class Program(Base):
     program_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
     duration=Column(String,index=True)
     program_name=Column(String,index=True)
+    program_description = Column(String,index=True)
 
 class Affiliated_University(Base):
     __tablename__ = 'affiliated_university'
@@ -67,9 +68,10 @@ class Student(Base):
     student_id=Column(UUID,index=True,primary_key=True, default=uuid.uuid4)
     email=Column(String,index=True)
     password=Column(String,index=True)
+    image_path=Column(String,index=True)
     semester_id=Column(UUID,ForeignKey("semester.semester_id"), index=True)
     newStudent_id=Column(UUID, ForeignKey("new_student.newStudent_id"),index=True)
-
+    
 class Student_enrolled_course(Base):
     __tablename__ = 'student_enrolled_courses'
     course_id=Column(UUID,ForeignKey("course.course_id"),index=True,primary_key=True,)

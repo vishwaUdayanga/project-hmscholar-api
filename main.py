@@ -124,7 +124,7 @@ def login_to_portal(request: request_models.Login, db: Session = Depends(get_db)
     admin = db.query(models.Admin).filter(models.Admin.admin_email == request.user_name).first()
 
     if student:
-        if not student.password == request.password:
+        if not utils.verify_password(request.password, student.password):
             raise HTTPException(status_code=400, detail="Incorrect username or password")
         access_token = create_access_token(data={"sub": student.email, "password": student.password, "type": "student"})
         return {"access_token": access_token, "token_type": "bearer", "student_id": student.student_id, "type": "student"}
@@ -901,3 +901,20 @@ def edit_student(student_id: UUID, new_student: StudentEditPassword, db: Session
     db.refresh(Student)
 
     return Student
+
+    #student portal
+    #new student
+@app.get("/student-portal/programs", response_model=List[request_models.StPorProgram])
+def get_program_details(db: db_dependency):
+    db_program =db.query(models.Program).all()
+    if db_program is None:
+        raise HTTPException(status_code=404, detail="Program not found")
+    available_programs = [
+        request_models.StPorProgram(
+            program_id = program.program_id,
+            program_name = program.program_name,
+            duration = program.duration,
+        )
+        for program in db_program
+    ]
+    return available_programs
