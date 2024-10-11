@@ -12,12 +12,13 @@ class Admin(Base):
     admin_password=Column(String,index=True)
     admin_email=Column(String,index=True)
 
-class Semester(Base):
+class Semester(Base): 
     __tablename__ = 'semester'
     semester_id=Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     year=Column(Integer,index=True)
     status=Column(Integer,index=True)
     semester=Column(Integer,index=True)
+    program_id=Column(UUID, ForeignKey("program.program_id"),index=True) ##Changed
 
 class Course(Base):
     __tablename__ = 'course'
@@ -26,12 +27,16 @@ class Course(Base):
     enrollment_key=Column(String,index=True)
     course_description=Column(String,index=True)
     course_image=Column(String,index=True)
+    semester_id=Column(UUID, ForeignKey("semester.semester_id"),index=True) ##Changed
 
 class Program(Base):
     __tablename__ = 'program'
     program_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
     duration=Column(String,index=True)
     program_name=Column(String,index=True)
+    program_description=Column(String,index=True)
+    university_name=Column(String,index=True)
+    university_image=Column(String,index=True)
 
 class Affiliated_University(Base):
     __tablename__ = 'affiliated_university'
@@ -70,6 +75,7 @@ class Student(Base):
     password=Column(String,index=True)
     semester_id=Column(UUID,ForeignKey("semester.semester_id"), index=True)
     newStudent_id=Column(UUID, ForeignKey("new_student.newStudent_id"),index=True)
+    image_path = Column(String,index=True)
 
 class Student_enrolled_course(Base):
     __tablename__ = 'student_enrolled_courses'
