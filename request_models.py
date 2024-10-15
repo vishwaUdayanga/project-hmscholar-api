@@ -64,5 +64,22 @@ class CourseSettings(BaseModel):
     course_description: str
     course_image: Optional[str] = None
 
+##portal
+class StPorProgram(BaseModel):
+    program_id: UUID
+    program_name: str
+    program_description: Optional[str] = None
+    duration: str
+    program_image: Optional[str] = None
+
+class NewStudent(BaseModel):
+    name: str
+    address: str
+    email: str
+    OL_path: str
+    AL_path: str
+    payment_path: str
+    program_id: UUID
+
 
 

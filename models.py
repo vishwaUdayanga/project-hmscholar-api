@@ -1,6 +1,7 @@
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, Float,  String, UUID, Date
 from database import Base
 import uuid
+import datetime
 
 class Admin(Base):
     __tablename__ ='admin'
@@ -18,7 +19,6 @@ class Semester(Base):
     year=Column(Integer,index=True)
     status=Column(Integer,index=True)
     semester=Column(Integer,index=True)
-    program_id=Column(UUID, ForeignKey("program.program_id"),index=True) ##Changed
 
 class Course(Base):
     __tablename__ = 'course'
@@ -27,7 +27,6 @@ class Course(Base):
     enrollment_key=Column(String,index=True)
     course_description=Column(String,index=True)
     course_image=Column(String,index=True)
-    semester_id=Column(UUID, ForeignKey("semester.semester_id"),index=True) ##Changed
 
 class Program(Base):
     __tablename__ = 'program'
@@ -60,23 +59,21 @@ class New_student(Base):
     newStudent_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
     name=Column(String,index=True)
     address=Column(String,index=True)
-    gender=Column(String,index=True)
     email=Column(String,index=True)
     OL_path=Column(String,index=True)
     AL_path=Column(String)
-    payment_id=Column(UUID, ForeignKey("payment.payment_id"),index=True)
+    payment_path=Column(String,index=True)
     program_id=Column(UUID, ForeignKey("program.program_id"),index=True)
-    date=Column(Date,index=True)
+    date = Column(Date, default=datetime.date.today, index=True)
 
 class Student(Base):
     __tablename__ = 'student'
     student_id=Column(UUID,index=True,primary_key=True, default=uuid.uuid4)
     email=Column(String,index=True)
     password=Column(String,index=True)
-    image_path=Column(String,index=True)
     semester_id=Column(UUID,ForeignKey("semester.semester_id"), index=True)
     newStudent_id=Column(UUID, ForeignKey("new_student.newStudent_id"),index=True)
-    image_path = Column(String,index=True)
+    image_path=Column(String,index=True)
 
 class Student_enrolled_course(Base):
     __tablename__ = 'student_enrolled_courses'
@@ -149,6 +146,8 @@ class Quiz(Base):
     quiz_password=Column(String,index=True)
     quiz_no_of_questions=Column(Integer,index=True)
     section_id=Column(UUID, ForeignKey("section.section_id", ondelete="CASCADE"),index=True)
+    is_enabled = Column(Boolean,index=True,default=False)
+    attempts= Column(Integer,index=True,default = 1)
 
 class Question(Base):
     __tablename__ = 'question'
@@ -164,6 +163,33 @@ class Answer(Base):
     answer=Column(String,index=True)
     is_correct=Column(Boolean,index=True)
     question_id=Column(UUID, ForeignKey("question.question_id", ondelete="CASCADE"),index=True)
+
+class StudentAttempts(Base):
+    __tablename__ = 'student_attempt'
+    id = Column(UUID(as_uuid=True),primary_key=True,index=True, default=uuid.uuid4)
+    quiz_id=Column(UUID, ForeignKey("quiz.quiz_id"),index=True)
+    course_id=Column(UUID, ForeignKey("course.course_id"),index=True)
+    is_doing = Column(Boolean,index=True,default=True)
+    student_id =Column(UUID, ForeignKey("student.student_id"),index=True)
+
+class StudentWrittenAnswers(Base):
+    __tablename__ = 'student_written_answer'
+    student_id = Column(UUID,ForeignKey("student.student_id"),index=True,primary_key=True)
+    quiz_id=Column(UUID, ForeignKey("quiz.quiz_id"),index=True,primary_key=True)
+    course_id= Column(UUID, ForeignKey("course.course_id"),index=True,primary_key=True)
+    marks = Column(Integer,index=True)
+    question_id =Column(UUID,ForeignKey("question.question_id"),index=True,primary_key=True)
+    answer= Column(String,index=True)
+
+class StudentMCQAnswers(Base):
+    __tablename__ = 'student_mcq_answer'
+    id = Column(UUID(as_uuid=True),primary_key=True,index=True, default=uuid.uuid4)
+    student_id = Column(UUID,ForeignKey("student.student_id"),index=True)
+    quiz_id=Column(UUID, ForeignKey("quiz.quiz_id"),index=True)
+    course_id= Column(UUID, ForeignKey("course.course_id"),index=True,primary_key=True)
+    question_id =Column(UUID,ForeignKey("question.question_id"),index=True)
+    answer_id= Column(UUID,ForeignKey("answer.answer_id"),index=True)
+    
 
 
 

@@ -1136,8 +1136,47 @@ def get_program_details(db: db_dependency):
         request_models.StPorProgram(
             program_id = program.program_id,
             program_name = program.program_name,
+            program_description = program.program_description,
             duration = program.duration,
+            program_image = program.university_image,
         )
         for program in db_program
     ]
     return available_programs
+
+@app.get("/student-portal/program-details/{program_id}")
+def get_program_details(program_id: UUID, db: db_dependency):
+    program_details = (
+        db.query(models.Course_semester_program, models.Program, models.Semester, models.Course)
+        .join(models.Program, models.Program.program_id == models.Course_semester_program.program_id)
+        .join(models.Semester, models.Semester.semester_id == models.Course_semester_program.semester_id)
+        .join(models.Course, models.Course.course_id == models.Course_semester_program.course_id)
+        .filter(models.Program.program_id == program_id)
+        .all()
+    )
+
+    response = []
+    for detail in program_details:
+        response.append(
+            response_models.ProgramDetails(
+                program_name = detail.Program.program_name,
+                program_description = detail.Program.program_description,
+                university_name = detail.Program.university_name,
+                university_image = detail.Program.university_image,
+                course_name = detail.Course.course_name,
+                course_description = detail.Course.course_description,
+                course_image = detail.Course.course_image,
+                year = detail.Semester.year,
+                semester = detail.Semester.semester
+            )
+        )
+    return response
+
+@app.post("/enroll_new_student")
+def enroll_new_student(new_student: request_models.NewStudent, db: db_dependency):
+
+    db_new_student = models.New_student(**new_student.dict())
+    db.add(db_new_student)
+    db.commit()
+
+    return {"Message":"Student enrolled successfully"}
