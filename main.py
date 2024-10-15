@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 import utils
 import request_models
 import response_models
+from sqlalchemy import func
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -63,7 +64,6 @@ class Payment(BaseModel):
 class New_student(BaseModel):
     name:str
     address:str
-    gender:str
     email:str
     OL_path:str
     AL_path:str
@@ -1477,9 +1477,12 @@ def get_questions(question_id:UUID,db:db_dependency):
 @app.put('/student/quiz/mcq/given-answers')
 def update_answer(request:request_models.StudentGivenMCQAnswers , db: db_dependency):
     answer = db.query(models.StudentMCQAnswers).filter(models.StudentMCQAnswers.student_id == request.student_id).filter(models.StudentMCQAnswers.course_id==request.course_id).filter(models.StudentMCQAnswers.quiz_id == request.quiz_id).filter(models.StudentMCQAnswers.question_id==request.question_id).first()
-
+    right_answer = db.query(models.Answer).filter(models.Answer.question_id==request.question_id).filter(models.Answer.is_correct==True).first()
     if not answer:
         raise HTTPException(status_code=404, detail="No answer found")
+    if request.answer_id==right_answer.answer_id:
+        question_marks =db.query(models.Question).filter(models.Question.question_id==right_answer.question_id).first()
+        answer.marks = question_marks.marks
     answer.answer_id = request.answer_id
     db.commit()
     db.refresh(answer)
@@ -1548,6 +1551,23 @@ def attempt(student_id:UUID,course_id:UUID ,quiz_id:UUID, db: db_dependency):
         is_enabled=attempt.is_doing,
     )
     return quizResponse
+
+@app.put('/student/student-attempts/submission/{student_id}/{course_id}/{quiz_id}')
+def attempt(student_id:UUID,course_id:UUID ,quiz_id:UUID, db: db_dependency):
+    attempt = db.query(models.StudentAttempts).filter(models.StudentAttempts.student_id==student_id).filter(models.StudentAttempts.quiz_id==quiz_id).filter(models.StudentAttempts.course_id==course_id).first()
+
+    if attempt is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    attempt.mcq_marks =db.query(func.sum(models.StudentMCQAnswers.marks)).filter(
+        models.StudentMCQAnswers.student_id == student_id,
+        models.StudentMCQAnswers.quiz_id == quiz_id,
+        models.StudentMCQAnswers.course_id == course_id
+    ).scalar() or 0
+    attempt.is_doing = False
+    db.commit()
+    db.refresh(attempt)
+    return attempt
+
 
 
 

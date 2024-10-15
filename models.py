@@ -55,13 +55,13 @@ class New_student(Base):
     newStudent_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
     name=Column(String,index=True)
     address=Column(String,index=True)
-    gender=Column(String,index=True)
     email=Column(String,index=True)
     OL_path=Column(String,index=True)
     AL_path=Column(String)
-    payment_id=Column(UUID, ForeignKey("payment.payment_id"),index=True)
+    payment_path=Column(String,index=True)
     program_id=Column(UUID, ForeignKey("program.program_id"),index=True)
     date = Column(Date, index=True, default=func.now())
+
 
 class Student(Base):
     __tablename__ = 'student'
@@ -168,6 +168,8 @@ class StudentAttempts(Base):
     course_id=Column(UUID, ForeignKey("course.course_id"),index=True)
     is_doing = Column(Boolean,index=True,default=True)
     student_id =Column(UUID, ForeignKey("student.student_id"),index=True)
+    mcq_marks = Column(Integer,index=True,default=0)
+    written_marks = Column(Integer,index=True,default=0)
 
 class StudentWrittenAnswers(Base):
     __tablename__ = 'student_written_answer'
@@ -177,6 +179,7 @@ class StudentWrittenAnswers(Base):
     marks = Column(Integer,index=True)
     question_id =Column(UUID,ForeignKey("question.question_id"),index=True,primary_key=True)
     answer= Column(String,index=True)
+    marks = Column(Integer,index=True,default=0)
 
 class StudentMCQAnswers(Base):
     __tablename__ = 'student_mcq_answer'
@@ -186,9 +189,4 @@ class StudentMCQAnswers(Base):
     course_id= Column(UUID, ForeignKey("course.course_id"),index=True,primary_key=True)
     question_id =Column(UUID,ForeignKey("question.question_id"),index=True)
     answer_id= Column(UUID,ForeignKey("answer.answer_id"),index=True)
-
-
-
-
-
-
+    marks = Column(Integer,index=True,default=0)
