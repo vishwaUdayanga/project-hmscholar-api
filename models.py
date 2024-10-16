@@ -12,6 +12,7 @@ class Admin(Base):
     admin_phone=Column(String,index=True)
     admin_password=Column(String,index=True)
     admin_email=Column(String,index=True)
+    image_path=Column(String,index=True)
 
 class Semester(Base): 
     __tablename__ = 'semester'
@@ -45,14 +46,9 @@ class Affiliated_University(Base):
 class Payment(Base):
     __tablename__ = 'payment'
     payment_id=Column(UUID(as_uuid=True),index=True,primary_key=True, default=uuid.uuid4)
-    date=Column(Date,index=True)
-    type=Column(String,index=True)
-    bank=Column(String,index=True)
-    branch=Column(String,index=True)
+    date=Column(Date, default=datetime.date.today, index=True)
     receipt_path=Column(String,index=True)
-    amount=Column(Float,index=True)
-    status=Column(String,index=True)
-    student_number=Column(UUID, ForeignKey("student.student_id"),index = True)
+    student_id=Column(UUID, ForeignKey("student.student_id"),index = True)
 
 class New_student(Base):
     __tablename__ = 'new_student'
@@ -87,6 +83,13 @@ class Course_semester_program(Base):
     program_id=Column(UUID, ForeignKey("program.program_id"),index=True,primary_key=True)
     course_id=Column(UUID, ForeignKey("course.course_id"),index=True,primary_key=True)
     semester_id=Column(UUID, ForeignKey("semester.semester_id"),index=True,primary_key=True)
+
+class Program_semester_student(Base):
+    __tablename__ = 'program_semester_student'
+    program_id=Column(UUID, ForeignKey("program.program_id"),index=True,primary_key=True)
+    semester_id=Column(UUID, ForeignKey("semester.semester_id"),index=True,primary_key=True)
+    student_id=Column(UUID, ForeignKey("student.student_id"),index=True,primary_key=True)
+
 
 class AdminAnnouncement(Base):
     __tablename__ ='admin_announcement'
@@ -171,6 +174,8 @@ class StudentAttempts(Base):
     course_id=Column(UUID, ForeignKey("course.course_id"),index=True)
     is_doing = Column(Boolean,index=True,default=True)
     student_id =Column(UUID, ForeignKey("student.student_id"),index=True)
+    mcq_marks = Column(Integer,index=True,default=0)
+    written_marks = Column(Integer,index=True,default=0)
 
 class StudentWrittenAnswers(Base):
     __tablename__ = 'student_written_answer'
@@ -180,6 +185,7 @@ class StudentWrittenAnswers(Base):
     marks = Column(Integer,index=True)
     question_id =Column(UUID,ForeignKey("question.question_id"),index=True,primary_key=True)
     answer= Column(String,index=True)
+    marks = Column(Integer,index=True,default=0)
 
 class StudentMCQAnswers(Base):
     __tablename__ = 'student_mcq_answer'
@@ -189,6 +195,7 @@ class StudentMCQAnswers(Base):
     course_id= Column(UUID, ForeignKey("course.course_id"),index=True,primary_key=True)
     question_id =Column(UUID,ForeignKey("question.question_id"),index=True)
     answer_id= Column(UUID,ForeignKey("answer.answer_id"),index=True)
+    marks = Column(Integer,index=True,default=0)
     
 
 

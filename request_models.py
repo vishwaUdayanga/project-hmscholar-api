@@ -81,5 +81,10 @@ class NewStudent(BaseModel):
     payment_path: str
     program_id: UUID
 
+class RegisterStudent(BaseModel):
+    student_id: UUID
+    receipt_path: str
+
+
 
 

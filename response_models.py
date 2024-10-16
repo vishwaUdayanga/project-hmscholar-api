@@ -16,3 +16,12 @@ class ProgramDetails(BaseModel):
     course_image: Optional[str] = None
     year: int
     semester: int
+
+class PortalUserDetails(BaseModel):
+    name: str
+    image_path: Optional[str] = None
+
+class StudentDetails(BaseModel):
+    student_id: UUID
+    name: str
+    email: str

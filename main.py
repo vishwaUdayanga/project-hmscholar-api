@@ -1180,3 +1180,59 @@ def enroll_new_student(new_student: request_models.NewStudent, db: db_dependency
     db.commit()
 
     return {"Message":"Student enrolled successfully"}
+
+@app.get("/user-details-for-student-portal/{email}")
+def get_student_details(email: str, db: db_dependency):
+    result = (
+        db.query(models.New_student, models.Student)
+        .join(models.Student, models.Student.newStudent_id == models.New_student.newStudent_id)
+        .filter(models.Student.email == email)
+        .first()
+    )
+    admin = db.query(models.Admin).filter(models.Admin.admin_email == email).first()
+
+    if result:
+        new_student, student = result
+        name = new_student.name
+        image_path = student.image_path
+        return response_models.PortalUserDetails(name=name, image_path=image_path)
+    elif admin:
+        name = admin.admin_name
+        image_path = admin.image_path
+        return response_models.PortalUserDetails(name=name, image_path=image_path)
+
+@app.post("/register_current_student_to_semester")
+def register_current_student_to_semester(new_student: request_models.RegisterStudent, db: db_dependency):
+    db_student = models.Payment(**new_student.dict())
+    db.add(db_student)
+    db.commit()
+    db.refresh(db_student)
+    return db_student
+
+@app.get("/student-details/{email}")
+def get_student_details(email: str, db: db_dependency):
+    result = (
+        db.query(models.New_student, models.Student)
+        .join(models.Student, models.Student.newStudent_id == models.New_student.newStudent_id)
+        .filter(models.Student.email == email)
+        .first()
+    )
+
+    if result:
+        new_student, student = result
+        return response_models.StudentDetails(
+            student_id=student.student_id,
+            name=new_student.name,
+            email=student.email,
+        )
+
+
+@app.get("/is_in_payment/{student_id}")
+def is_in_payment(student_id: UUID, db: db_dependency):
+    result = db.query(models.Payment).filter(models.Payment.student_id == student_id).first()
+    if result:
+        return True
+    return False
+
+    
+
