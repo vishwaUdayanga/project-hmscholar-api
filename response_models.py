@@ -25,3 +25,23 @@ class StudentDetails(BaseModel):
     student_id: UUID
     name: str
     email: str
+
+class NewStudents(BaseModel):
+    newStudent_id: UUID
+    name: str
+    address: str
+    email: str
+    OL_path: str
+    AL_path: str
+    payment_path: str
+    date: str
+    confirmed: bool
+
+class CurrentStudentPayment(BaseModel):
+    payment_id: UUID
+    email: str
+    date: str
+    receipt_path: str
+    confirmed: bool
+
+

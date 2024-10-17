@@ -49,6 +49,7 @@ class Payment(Base):
     date=Column(Date, default=datetime.date.today, index=True)
     receipt_path=Column(String,index=True)
     student_id=Column(UUID, ForeignKey("student.student_id"),index = True)
+    confirmed=Column(Boolean,index=True,default=False)
 
 class New_student(Base):
     __tablename__ = 'new_student'
@@ -61,6 +62,7 @@ class New_student(Base):
     payment_path=Column(String,index=True)
     program_id=Column(UUID, ForeignKey("program.program_id"),index=True)
     date = Column(Date, default=datetime.date.today, index=True)
+    confirmed = Column(Boolean,index=True,default=False)
 
 class Student(Base):
     __tablename__ = 'student'
@@ -69,7 +71,7 @@ class Student(Base):
     password=Column(String,index=True)
     semester_id=Column(UUID,ForeignKey("semester.semester_id"), index=True)
     newStudent_id=Column(UUID, ForeignKey("new_student.newStudent_id"),index=True)
-    image_path=Column(String,index=True)
+    image_path=Column(String,index=True, default=None)
 
 class Student_enrolled_course(Base):
     __tablename__ = 'student_enrolled_courses'

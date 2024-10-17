@@ -1324,5 +1324,121 @@ def is_in_payment(student_id: UUID, db: db_dependency):
     return False
 
 
+##student portal admin
+
+@app.get("/new-student-enrollments/{program_id}")
+def get_new_student_enrollments(program_id: UUID, db: db_dependency):
+    result = (
+        db.query(models.New_student)
+        .filter(models.New_student.program_id == program_id)
+        .all()
+    )
+
+    if not result:
+        raise HTTPException(status_code=404, detail="New student enrollments not found")
+    
+    response = []
+    for student in result:
+        response.append(
+            response_models.NewStudents(
+                newStudent_id=student.newStudent_id,
+                name=student.name,
+                address=student.address,
+                email=student.email,
+                OL_path=student.OL_path,
+                AL_path=student.AL_path,
+                payment_path=student.payment_path,
+                date=student.date.strftime("%Y-%m-%d"),
+                confirmed=student.confirmed
+            )
+        )
+
+    return response
+
+@app.put("/confirm-new-student/{new_student_id}")
+def confirm_new_student(new_student_id: UUID, db: db_dependency):
+    student = db.query(models.New_student).filter(models.New_student.newStudent_id == new_student_id).first()
+    if student is None:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    password = utils.get_password_hash(student.email)
+
+    if not student.confirmed:
+        db_student = models.Student(
+            email = student.email,
+            password = password,
+            semester_id = '75cdc5e4-a507-4eef-8778-875b52331a91',
+            newStudent_id = student.newStudent_id
+        )
+        db.add(db_student)
+        db.commit()
+    
+    if student.confirmed:
+        db.query(models.Student).filter(models.Student.newStudent_id == new_student_id).delete()
+        db.commit()
+    
+    student.confirmed = not student.confirmed
+    db.commit()
+    db.refresh(student)
+
+    return {"Message": "Student confirmed successfully"}
+
+
+@app.get("/current-student-payments")
+def get_current_student_payments(db: db_dependency):
+    result = (
+        db.query(models.Payment, models.Student)
+        .join(models.Student, models.Student.student_id == models.Payment.student_id)
+        .all()
+    )
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Payments not found")
+    
+    response = []
+    for payment, student in result:
+        response.append(
+            response_models.CurrentStudentPayment(
+                payment_id=payment.payment_id,
+                email=student.email,
+                date = payment.date.strftime("%Y-%m-%d"),
+                receipt_path=payment.receipt_path,
+                confirmed=payment.confirmed
+            )
+        )
+    
+    return response
+
+@app.put("/confirm-current-student-payment/{payment_id}")
+def confirm_current_student_payment(payment_id: UUID, db: db_dependency):
+    payment = db.query(models.Payment).filter(models.Payment.payment_id == payment_id).first()
+    if payment is None:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    if not payment.confirmed:
+        db_program_semester_student = models.Program_semester_student(
+            program_id = '600d59e6-05af-4d02-95a2-c1851d487ff5',
+            semester_id = '321e7ded-204a-465f-b327-d59a27c802b4',
+            student_id = payment.student_id
+        )
+        db.add(db_program_semester_student)
+        db.commit()
+
+        db.query(models.Student).filter(models.Student.student_id == payment.student_id).update({"semester_id": '321e7ded-204a-465f-b327-d59a27c802b4'})
+        db.commit()
+    
+    if payment.confirmed:
+        db.query(models.Program_semester_student).filter(models.Program_semester_student.student_id == payment.student_id).delete()
+        db.commit()
+
+        db.query(models.Student).filter(models.Student.student_id == payment.student_id).update({"semester_id": '75cdc5e4-a507-4eef-8778-875b52331a91'})
+        db.commit()
+    
+    payment.confirmed = not payment.confirmed
+    db.commit()
+    db.refresh(payment)
+
+    return {"Message": "Payment confirmed successfully"}
+
     
 
