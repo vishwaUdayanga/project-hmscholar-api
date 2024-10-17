@@ -1167,6 +1167,61 @@ def edit_student(student_id: UUID, new_student: CreateStudent, db: Session = Dep
 
     return student
 
+@app.get("/admin/assigned_lecturers/{course_id}")
+def get_assigned_lecturers(course_id: UUID, db: Session = Depends(get_db)):
+    assigned_lecturers = (
+        db.query(models.Lecturer_assigned_for, models.Lecturer)
+        .join(models.Lecturer, models.Lecturer.lecturer_id == models.Lecturer_assigned_for.lecturer_id)
+        .filter(models.Lecturer_assigned_for.course_id == course_id)
+        .all()
+    )
+
+    if not assigned_lecturers:
+        raise HTTPException(status_code=404, detail="Lecturers not found for this course")
+    
+    response = []
+    for assignment, lecturer in assigned_lecturers:
+        response.append({
+            "lecturer_id": lecturer.lecturer_id,
+            "lecturer_name": lecturer.lecturer_name
+        })
+    
+    return response
+
+@app.get("/admin/get-all-lecturers")
+def get_all_lecturers(db: Session = Depends(get_db)):
+    lecturers = db.query(models.Lecturer).all()
+    if not lecturers:
+        raise HTTPException(status_code=404, detail="No lecturers found")
+    
+    response = []
+    for lecturer in lecturers:
+        response.append({
+            "lecturer_id": lecturer.lecturer_id,
+            "lecturer_name": lecturer.lecturer_name
+        })
+    
+    return response
+
+@app.post("/admin/assign_lecturer/{course_id}/{lecturer_id}")
+def assign_lecturer(course_id: UUID, lecturer_id: UUID, db: Session = Depends(get_db)):
+    assignment = models.Lecturer_assigned_for(course_id=course_id, semester_id='75cdc5e4-a507-4eef-8778-875b52331a91', program_id='600d59e6-05af-4d02-95a2-c1851d487ff5', lecturer_id=lecturer_id)
+    db.add(assignment)
+    db.commit()
+    db.refresh(assignment)
+    return assignment
+
+@app.delete("/admin/delete_lecturer_assignment/{course_id}/{lecturer_id}")
+def delete_lecturer_assignment(course_id: UUID, lecturer_id: UUID, db: Session = Depends(get_db)):
+    assignment = db.query(models.Lecturer_assigned_for).filter(models.Lecturer_assigned_for.course_id == course_id).filter(models.Lecturer_assigned_for.lecturer_id == lecturer_id).first()
+    if assignment is None:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    db.delete(assignment)
+    db.commit()
+    return {"message": "Assignment deleted successfully"}
+
+
+
 #Student endpoints
 
 @app.get("/student/profile/{email}")
@@ -1209,8 +1264,8 @@ def edit_student(student_id: UUID, new_student: StudentEditPassword, db: Session
 
     return Student
 
-    #student portal
-    #new student
+#student portal
+#new student
 @app.get("/student-portal/programs", response_model=List[request_models.StPorProgram])
 def get_program_details(db: db_dependency):
     db_program =db.query(models.Program).all()
