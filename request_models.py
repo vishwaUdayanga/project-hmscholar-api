@@ -64,6 +64,16 @@ class CourseSettings(BaseModel):
     course_description: str
     course_image: Optional[str] = None
 
+class WrittenAnswers(BaseModel):
+    question_id: UUID
+    question: str 
+    answer: str 
+    marks: int
+
+class UpdateWrittenAnswersRequest(BaseModel):
+    written_answers: List[WrittenAnswers]
+
+
 ##portal
 class StPorProgram(BaseModel):
     program_id: UUID

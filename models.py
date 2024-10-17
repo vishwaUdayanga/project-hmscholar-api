@@ -182,10 +182,9 @@ class StudentWrittenAnswers(Base):
     student_id = Column(UUID,ForeignKey("student.student_id"),index=True,primary_key=True)
     quiz_id=Column(UUID, ForeignKey("quiz.quiz_id"),index=True,primary_key=True)
     course_id= Column(UUID, ForeignKey("course.course_id"),index=True,primary_key=True)
-    marks = Column(Integer,index=True)
+    marks = Column(Integer,index=True,default=0)
     question_id =Column(UUID,ForeignKey("question.question_id"),index=True,primary_key=True)
     answer= Column(String,index=True)
-    marks = Column(Integer,index=True,default=0)
 
 class StudentMCQAnswers(Base):
     __tablename__ = 'student_mcq_answer'

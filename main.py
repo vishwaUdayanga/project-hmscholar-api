@@ -696,6 +696,90 @@ def delete_quiz(quiz_id: UUID, db: db_dependency):
     db.commit()
     return {"message": "Quiz deleted successfully"}
 
+@app.get("/get-quizzes/{course_id}")
+def get_quizzes(course_id: UUID, db: Session = Depends(get_db)):
+    result = (
+        db.query(models.Quiz, models.Section)
+        .join(models.Section, models.Section.section_id == models.Quiz.section_id)
+        .filter(models.Section.course_id == course_id)
+        .all()
+    )
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Quizzes not found for this course")
+    
+    response = []
+    for quiz, section in result:
+        response.append({
+            "quiz_id": quiz.quiz_id,
+            "quiz_name": quiz.quiz_name,
+            "section_name": section.section_name
+        })
+    
+    return response
+
+@app.get("/get-student-attempts/{quiz_id}")
+def get_student_attempts(quiz_id: UUID, db: Session = Depends(get_db)):
+    result = (
+        db.query(models.StudentAttempts, models.Student)
+        .join(models.Student, models.Student.student_id == models.StudentAttempts.student_id)
+        .filter(models.StudentAttempts.quiz_id == quiz_id)
+        .all()
+    )
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Attempts not found for this quiz")
+    
+    response = []
+    for attempt, student in result:
+        response.append({
+            "student_id": student.student_id,
+            "email": student.email,
+            "quiz_id": attempt.quiz_id,
+            "mcq_marks": attempt.mcq_marks,
+            "written_marks": attempt.written_marks
+        })
+    
+    return response
+
+@app.get("/get-written-answers/{student_id}/{quiz_id}")
+def get_written_answers(student_id: UUID, quiz_id: UUID, db: Session = Depends(get_db)):
+    result = (
+        db.query(models.StudentWrittenAnswers, models.Question)
+        .join(models.Question, models.Question.question_id == models.StudentWrittenAnswers.question_id)
+        .filter(models.StudentWrittenAnswers.student_id == student_id)
+        .filter(models.StudentWrittenAnswers.quiz_id == quiz_id)
+        .all()
+    )
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Answers not found for this student")
+    
+    response = []
+    for answer, question in result:
+        response.append({
+            "question_id": question.question_id,
+            "question": question.question,
+            "answer": answer.answer,
+            "marks": answer.marks
+        })
+
+    return response
+
+@app.put("/edit-written-answers/{student_id}/{quiz_id}")
+def edit_written_answers(student_id: UUID, quiz_id: UUID, request_body: request_models.UpdateWrittenAnswersRequest, db: db_dependency):
+    full_marks = 0
+    for answer in request_body.written_answers:
+        db.query(models.StudentWrittenAnswers).filter(models.StudentWrittenAnswers.student_id == student_id).filter(models.StudentWrittenAnswers.quiz_id == quiz_id).filter(models.StudentWrittenAnswers.question_id == answer.question_id).update({"marks": answer.marks})
+        full_marks += answer.marks
+        db.commit()
+    
+    db.query(models.StudentAttempts).filter(models.StudentAttempts.student_id == student_id).filter(models.StudentAttempts.quiz_id == quiz_id).update({"written_marks": full_marks})
+    db.commit()
+    
+    return {"message": "Answers updated successfully"}
+
+
 @app.put('/edit-lecturer-image/{lecturer_id}')
 def edit_lecturer_image(lecturer_id: UUID, new_image: request_models.EditLecturerImage, db: db_dependency):
     lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_id == lecturer_id).first()
@@ -1190,6 +1274,7 @@ def get_student_details(email: str, db: db_dependency):
         .first()
     )
     admin = db.query(models.Admin).filter(models.Admin.admin_email == email).first()
+    lecturer = db.query(models.Lecturer).filter(models.Lecturer.lecturer_email == email).first()
 
     if result:
         new_student, student = result
@@ -1199,6 +1284,10 @@ def get_student_details(email: str, db: db_dependency):
     elif admin:
         name = admin.admin_name
         image_path = admin.image_path
+        return response_models.PortalUserDetails(name=name, image_path=image_path)
+    elif lecturer:
+        name = lecturer.lecturer_name
+        image_path = lecturer.lecturer_image
         return response_models.PortalUserDetails(name=name, image_path=image_path)
 
 @app.post("/register_current_student_to_semester")
@@ -1233,6 +1322,7 @@ def is_in_payment(student_id: UUID, db: db_dependency):
     if result:
         return True
     return False
+
 
     
 
