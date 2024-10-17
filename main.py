@@ -1151,7 +1151,7 @@ def get_profile(search_email: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Student profile not found")
     
     program = db.query(models.Program).filter(models.Program.program_id ==student_profile.program_id).first()
-    student_image = student.image_path if student.image_path else "/dashboard/announcements/user.jpg"
+    student_image = student.image_path
 
     student_response = request_models.StudentProfile(
     email=search_email,
@@ -1387,7 +1387,7 @@ def edit_student_image(student_id: UUID, new_image: request_models.EditStudentIm
     if student is None:
         raise HTTPException(status_code=404, detail="Lecturer not found")
     
-    student.image_path = new_image.student_img
+    student.image_path = new_image.lecturer_image
     db.commit()
     db.refresh(student)
     return student

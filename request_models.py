@@ -89,7 +89,7 @@ class CourseSettings(BaseModel):
     course_image: Optional[str] = None
 
 class EditStudentImage(BaseModel):
-    student_img: str
+    lecturer_image: str
 
 
     
