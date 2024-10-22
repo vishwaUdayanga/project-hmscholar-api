@@ -807,6 +807,70 @@ def edit_lecturer(lecturer_id: UUID, new_lecturer: request_models.LecturerEdit, 
 
     return lecturer
 
+@app.get("/lecturer/get-all-students")
+def get_all_students(db: Session = Depends(get_db)):
+    students = db.query(models.Student).all()
+    if not students:
+        raise HTTPException(status_code=404, detail="Students not found")
+    
+    response = []
+    for student in students:
+        response.append({
+            "student_id": student.student_id,
+            "email": student.email,
+        })
+    
+    return response
+
+
+@app.get("/get-enrolled-students/{course_id}")
+def get_enrolled_students(course_id: UUID, db: Session = Depends(get_db)):
+    result = (
+        db.query(models.Student_enrolled_course, models.Student)
+        .join(models.Student, models.Student.student_id == models.Student_enrolled_course.student_id)
+        .filter(models.Student_enrolled_course.course_id == course_id)
+        .all()
+    )
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Students not found for this course")
+    
+    response = []
+    for enrollment, student in result:
+        response.append({
+            "student_id": student.student_id,
+            "email": student.email,
+        })
+    
+    return response
+
+@app.post("/enroll-student/{student_id}/{course_id}")
+def enroll_student(student_id: UUID, course_id: UUID, db: db_dependency):
+    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    course = db.query(models.Course).filter(models.Course.course_id == course_id).first()
+    if student is None:
+        raise HTTPException(status_code=404, detail="Student not found")
+    if course is None:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    enrollment = models.Student_enrolled_course(student_id=student_id, course_id=course_id, semester_id='75cdc5e4-a507-4eef-8778-875b52331a91')
+    db.add(enrollment)
+    db.commit()
+    db.refresh(enrollment)
+    return enrollment
+
+@app.delete("/delete-student-enrollment/{student_id}/{course_id}")
+def delete_student_enrollment(student_id: UUID, course_id: UUID, db: db_dependency):
+    enrollment = db.query(models.Student_enrolled_course).filter(models.Student_enrolled_course.student_id == student_id).filter(models.Student_enrolled_course.course_id == course_id).first()
+    if enrollment is None:
+        raise HTTPException(status_code=404, detail="Enrollment not found")
+    
+    db.delete(enrollment)
+    db.commit()
+    return {"message": "Enrollment deleted successfully"}
+
+
+
 
 @app.get("/one-section/{section_id}") 
 def get_section(section_id: UUID, db: Session = Depends(get_db)):
