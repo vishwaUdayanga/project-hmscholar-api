@@ -44,4 +44,8 @@ class CurrentStudentPayment(BaseModel):
     receipt_path: str
     confirmed: bool
 
+class PaymentDetails(BaseModel):
+    payment_id: UUID
+    confirmed: bool
+
 

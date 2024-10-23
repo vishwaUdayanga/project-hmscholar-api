@@ -1362,6 +1362,7 @@ def get_program_details(program_id: UUID, db: db_dependency):
     for detail in program_details:
         response.append(
             response_models.ProgramDetails(
+                course_id = detail.Course.course_id,
                 program_name = detail.Program.program_name,
                 program_description = detail.Program.program_description,
                 university_name = detail.Program.university_name,
@@ -1438,9 +1439,14 @@ def get_student_details(email: str, db: db_dependency):
 @app.get("/is_in_payment/{student_id}")
 def is_in_payment(student_id: UUID, db: db_dependency):
     result = db.query(models.Payment).filter(models.Payment.student_id == student_id).first()
+    ## return the payment details
     if result:
-        return True
-    return False
+        return response_models.PaymentDetails(
+            payment_id=result.payment_id,
+            confirmed=result.confirmed
+        )
+    return {"Message": "Student not in payment"}
+        
 
 
 ##student portal admin
