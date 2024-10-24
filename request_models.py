@@ -44,6 +44,30 @@ class Student(BaseModel):
     password:str
     semester_id:UUID
     newStudent_id:UUID
+    
+class StudentCourseResponse(BaseModel):
+    course_id: UUID
+    course_name: str
+    year: int
+    enrollment_key: str
+    semester: int
+    course_image:Optional[str] = None
+
+class StudentProfile(BaseModel):
+  student_id:UUID
+  email: str
+  name: str
+  program:str
+  password: str
+  student_image:Optional[str] = None
+
+class AdminAnnouncements(BaseModel):
+    admin_id:UUID
+    admin_name: str
+    title:str
+    description: str
+    admin_image:Optional[str] = None
+
 
 class SectionEdit(BaseModel):
     section_name: str
@@ -64,6 +88,70 @@ class CourseSettings(BaseModel):
     course_description: str
     course_image: Optional[str] = None
 
+class EditStudentImage(BaseModel):
+    lecturer_image: str
+
+
+    
+class requestQuiz(BaseModel):
+    quiz_id:UUID
+    quiz_name:str
+    quiz_duration:int
+    quiz_total_marks:int
+    quiz_description:str
+    quiz_password:str
+    quiz_no_of_questions:int
+    is_enabled:bool
+    attempts:int
+
+class attemptQuiz(BaseModel):
+    quiz_password:str
+
+class StudentQuestion(BaseModel):
+    questionText: str
+    questionMarks: int
+    questionType: str
+    quiz_id: UUID
+    question_id:UUID
+
+class StudentMCQAnswer(BaseModel):
+    answer_id:UUID 
+    answer: str
+
+class StudentGivenMCQAnswers(BaseModel):
+    student_id:UUID
+    quiz_id:UUID
+    course_id:UUID
+    question_id :UUID
+    answer_id:UUID
+
+class StudentGivenWrittenAnswers(BaseModel):
+    student_id:UUID
+    quiz_id:UUID
+    course_id:UUID
+    question_id :UUID
+    answer:str
+class StudentSavedAnswers(BaseModel):
+    student_id:UUID
+    quiz_id:UUID
+    course_id:UUID
+    question_id :UUID
+
+class StudentSavedMcqAnswerResponse(BaseModel):
+    question_id:UUID
+    answer_id:UUID
+    answer :str
+class StudentSavedWrittenAnswerResponse(BaseModel):
+    question_id:UUID
+    answer :str
+
+class Student_attemps(BaseModel):
+    is_enabled:bool
+
+class getLecturerDetails(BaseModel):
+    lecturer_name:str
+    lecturer_email:str
+    lecturer_phone:str
 class WrittenAnswers(BaseModel):
     question_id: UUID
     question: str 

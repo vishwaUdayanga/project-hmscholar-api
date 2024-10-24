@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, Float,  String, UUID, Date
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, Float,  String, UUID, Date,func
 from database import Base
 import uuid
 import datetime
@@ -28,6 +28,7 @@ class Semester(Base):
     year=Column(Integer,index=True)
     status=Column(Integer,index=True)
     semester=Column(Integer,index=True)
+    # program_id=Column(UUID, ForeignKey("program.program_id"),index=True) ##Changed
 
 class Course(Base):
     __tablename__ = 'course'
@@ -36,6 +37,7 @@ class Course(Base):
     enrollment_key=Column(String,index=True)
     course_description=Column(String,index=True)
     course_image=Column(String,index=True)
+    # semester_id=Column(UUID, ForeignKey("semester.semester_id"),index=True) ##Changed
 
 class Program(Base):
     __tablename__ = 'program'
@@ -196,9 +198,23 @@ class StudentMCQAnswers(Base):
     question_id =Column(UUID,ForeignKey("question.question_id"),index=True)
     answer_id= Column(UUID,ForeignKey("answer.answer_id"),index=True)
     marks = Column(Integer,index=True,default=0)
-    
 
+# class StudentWrittenAnswers(Base):
+#     __tablename__ = 'student_written_answer'
+#     student_id = Column(UUID,ForeignKey("student.student_id"),index=True,primary_key=True)
+#     quiz_id=Column(UUID, ForeignKey("quiz.quiz_id"),index=True,primary_key=True)
+#     course_id= Column(UUID, ForeignKey("course.course_id"),index=True,primary_key=True)
+#     marks = Column(Integer,index=True)
+#     question_id =Column(UUID,ForeignKey("question.question_id"),index=True,primary_key=True)
+#     answer= Column(String,index=True)
+#     marks = Column(Integer,index=True,default=0)
 
-
-
-
+# class StudentMCQAnswers(Base):
+#     __tablename__ = 'student_mcq_answer'
+#     id = Column(UUID(as_uuid=True),primary_key=True,index=True, default=uuid.uuid4)
+#     student_id = Column(UUID,ForeignKey("student.student_id"),index=True)
+#     quiz_id=Column(UUID, ForeignKey("quiz.quiz_id"),index=True)
+#     course_id= Column(UUID, ForeignKey("course.course_id"),index=True,primary_key=True)
+#     question_id =Column(UUID,ForeignKey("question.question_id"),index=True)
+#     answer_id= Column(UUID,ForeignKey("answer.answer_id"),index=True)
+#     marks = Column(Integer,index=True,default=0)

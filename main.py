@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 import utils
 import request_models
 import response_models
+from sqlalchemy import func
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -53,7 +54,6 @@ class Affiliated_University(BaseModel):
     affiliated_with:str
 
 class Payment(BaseModel):
-    date:date
     type:str
     bank:str
     branch:str
@@ -64,11 +64,9 @@ class Payment(BaseModel):
 class New_student(BaseModel):
     name:str
     address:str
-    gender:str
     email:str
     OL_path:str
     AL_path:str
-    date:date
 
 
 class Student(BaseModel):
@@ -79,6 +77,16 @@ class Course_semester_program(BaseModel):
     course_id:UUID
     program_id:UUID
     semester_id:str
+
+##students in courses in each sem
+class Student_enrolled_course(BaseModel):
+    enrollment_key:str
+
+
+class getSemesterCourse(BaseModel):
+    course_id: UUID
+    semester_id: UUID
+
 
 def get_db():
     db = SessionLocal()
@@ -196,8 +204,8 @@ def create_course(new_course: Course, db: db_dependency):
     db.commit()
     db.refresh(db_course)
     
-@app.post("/add_course_semester_program/{program_id}/{semester_id}/{course_id}")
-def create_CourseSemesterProgram(program_id:UUID,semester_id:str,course_id:str,db: db_dependency):
+@app.post("/admin/add_course_semester_program/{program_id}/{semester_id}/{course_id}")
+def create_CourseSemesterProgram(program_id:UUID,semester_id:UUID,course_id:UUID,db: db_dependency):
     program = db.query(models.Program).filter(models.Program.program_id == program_id).first()
     semester = db.query(models.Semester).filter(models.Semester.semester_id == semester_id).first()
     course = db.query(models.Course).filter(models.Course.course_id == course_id).first()
@@ -216,7 +224,7 @@ def create_CourseSemesterProgram(program_id:UUID,semester_id:str,course_id:str,d
 
     return db_SCP
 
-@app.post("/register_student/{program_id}")
+@app.post("/new_student/register/{program_id}")
 def register_new_student(program_id:UUID,new_student: New_student, payment: Payment, db: db_dependency):
     program = db.query(models.Program).filter(models.Program.program_id == program_id).first()
     if not program:
@@ -240,7 +248,6 @@ def get_student_details(db: db_dependency):
     if db_new_student is None:
         raise HTTPException(status_code=404, detail="Student not found")
     return db_new_student
-
 
 #Lecturer
 
@@ -1273,6 +1280,7 @@ def get_student(student_id: UUID, db: Session = Depends(get_db)):
         email=student.email,
     )
 
+
 @app.put("/admin/edit_student/{student_id}")
 def edit_student(student_id: UUID, new_student: CreateStudent, db: Session = Depends(get_db)):
     student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
@@ -1284,6 +1292,48 @@ def edit_student(student_id: UUID, new_student: CreateStudent, db: Session = Dep
     db.refresh(student)
 
     return student
+
+@app.get("/student/course_program/{student_id}", response_model=List[request_models.StudentCourseResponse])
+def get_course(student_id: UUID, db: db_dependency):
+    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    New_student = db.query(models.New_student).filter(models.New_student.newStudent_id == student.newStudent_id).first()
+    if not New_student:
+        raise HTTPException(status_code=404, detail="New student record not found")
+
+    enrolled_course_ids = (
+        db.query(models.Student_enrolled_course.course_id)
+        .filter(models.Student_enrolled_course.student_id == student_id)
+        .all()
+    )
+    enrolled_course_ids = {course[0] for course in enrolled_course_ids}  # Use a set for faster lookups
+
+    available_courses = (
+        db.query(models.Course, models.Semester)
+        .join(models.Course_semester_program, models.Course_semester_program.course_id == models.Course.course_id)
+        .join(models.Semester, models.Semester.semester_id == models.Course_semester_program.semester_id)
+        .filter(models.Course_semester_program.program_id == New_student.program_id).filter(models.Course_semester_program.semester_id != student.semester_id)
+        .all()
+    )
+    not_enrolled_courses = [
+        request_models.StudentCourseResponse(
+                course_id=course.Course.course_id,
+                course_name=course.Course.course_name,
+                year=course.Semester.year,
+                enrollment_key=course.Course.enrollment_key,
+                semester=course.Semester.semester,
+                course_image = course.Course.course_image,
+        )
+        for course in available_courses if course.Course.course_id not in enrolled_course_ids
+    ]
+
+    if not not_enrolled_courses:
+        raise HTTPException(status_code=404, detail="No available courses found for this student")
+
+    return not_enrolled_courses
+
 
 @app.get("/admin/assigned_lecturers/{course_id}")
 def get_assigned_lecturers(course_id: UUID, db: Session = Depends(get_db)):
@@ -1342,20 +1392,39 @@ def delete_lecturer_assignment(course_id: UUID, lecturer_id: UUID, db: Session =
 
 #Student endpoints
 
-@app.get("/student/profile/{email}")
-def get_profile(email: str, db: Session = Depends(get_db)):
-    student_profile = db.query(models.Student).filter(models.Student.email == email).first()
+# student profile
+@app.get("/student/profile/{search_email}", response_model=request_models.StudentProfile)
+def get_profile(search_email: str, db: Session = Depends(get_db)):
+    student = db.query(models.Student).filter(models.Student.email == search_email).first()
+
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    student_profile = (db.query(models.New_student)
+                       .filter(models.New_student.newStudent_id == student.newStudent_id)
+                       .first())
+    
     if not student_profile:
         raise HTTPException(status_code=404, detail="Student profile not found")
-    return student_profile
+    
+    program = db.query(models.Program).filter(models.Program.program_id ==student_profile.program_id).first()
+    student_image = student.image_path
 
-@app.get("/student/profile/{student_id}")
-def get_profile(email: str, db: Session = Depends(get_db)):
-    student_profile = db.query(models.Student).filter(models.Student.email == email).first()
-    if not student_profile:
-        raise HTTPException(status_code=404, detail="Student profile not found")
-    return student_profile
+    student_response = request_models.StudentProfile(
+    email=search_email,
+    name=student_profile.name,
+    program=program.program_name,  # Ensure this attribute exists in New_student
+    password=student.password,  # Password should be handled securely; consider not exposing it
+    student_id=student.student_id,
+    student_image=student_image
+    )
 
+    return student_response
+
+
+
+
+#change email
 @app.put("/student/edit-email/{student_id}")
 def edit_student(student_id: UUID, new_student: StudentEditEmail, db: Session = Depends(get_db)):
     Student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
@@ -1368,19 +1437,417 @@ def edit_student(student_id: UUID, new_student: StudentEditEmail, db: Session = 
 
     return Student
 
+#change password
 @app.put("/student/edit-password/{student_id}")
 def edit_student(student_id: UUID, new_student: StudentEditPassword, db: Session = Depends(get_db)):
     Student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
     if Student is None:
-        raise HTTPException(status_code=404, detail="Announcement not found")
-    if Student.password == new_student.old_password:
-        Student.password = new_student.new_password
+        raise HTTPException(status_code=404, detail="student not found")
+    if utils.verify_password(new_student.old_password, Student.password):
+        Student.password = utils.get_password_hash(new_student.new_password)
     else:
-        raise HTTPException(status_code=404, detail="Announcement not found")        
+        raise HTTPException(status_code=404, detail="student not found")        
     db.commit()
     db.refresh(Student)
 
     return Student
+
+#Get courses students are registered in
+@app.get("/student/course/{student_id}",response_model=List[request_models.StudentCourseResponse])
+def get_course( student_id:UUID, db:db_dependency):
+    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    enrolled_courses = (
+        db.query(models.Course_semester_program, models.Course, models.Semester).filter(models.Course_semester_program.semester_id == student.semester_id)
+        .join(models.Course, models.Course.course_id == models.Course_semester_program.course_id)
+        .join(models.Semester, models.Semester.semester_id == student.semester_id)
+        .all()
+    )
+
+    if not enrolled_courses:
+        raise HTTPException(status_code=404, detail="Courses not found for this student")
+    
+    response = []
+    for enrollment in enrolled_courses: 
+        response.append(
+            request_models.StudentCourseResponse(
+                course_id=enrollment.Course.course_id,
+                course_name=enrollment.Course.course_name,
+                year=enrollment.Semester.year,
+                enrollment_key=enrollment.Course.enrollment_key,
+                semester=enrollment.Semester.semester,
+                course_image = enrollment.Course.course_image,
+            )
+        )
+
+    return response
+
+#Get courses students are registered in but not in current sem
+@app.get("/student/courses_not_in_semester/{student_id}",response_model=List[request_models.StudentCourseResponse])
+def get_course( student_id:UUID, db:db_dependency):
+    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    enrolled_courses = (
+        db.query(models.Student_enrolled_course, models.Course, models.Semester).filter(models.Student_enrolled_course.student_id == student_id).filter(models.Student_enrolled_course.semester_id!= student.semester_id)
+        .join(models.Course, models.Course.course_id == models.Student_enrolled_course.course_id)
+        .join(models.Semester, models.Semester.semester_id == models.Student_enrolled_course.semester_id)
+        .all()
+    )
+
+    if not enrolled_courses:
+        raise HTTPException(status_code=404, detail="Courses not found for this student")
+    
+    response = []
+    for enrollment in enrolled_courses: 
+        response.append(
+            request_models.StudentCourseResponse(
+                course_id=enrollment.Course.course_id,
+                course_name=enrollment.Course.course_name,
+                year=enrollment.Semester.year,
+                enrollment_key=enrollment.Course.enrollment_key,
+                semester=enrollment.Semester.semester,
+                course_image = enrollment.Course.course_image,
+            )
+        )
+
+    return response
+
+#Get courses students are registered in
+@app.get("/student/course_program/{student_id}", response_model=List[request_models.StudentCourseResponse])
+def get_course(student_id: UUID, db: db_dependency):
+    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    New_student = db.query(models.New_student).filter(models.New_student.newStudent_id == student.newStudent_id).first()
+    if not New_student:
+        raise HTTPException(status_code=404, detail="New student record not found")
+
+    enrolled_course_ids = ( 
+        db.query(models.Student_enrolled_course.course_id)
+        .filter(models.Student_enrolled_course.student_id == student_id)
+        .all()
+    )
+    enrolled_course_ids = {course[0] for course in enrolled_course_ids}  # Use a set for faster lookups
+
+    available_courses = (
+        db.query(models.Course, models.Semester)
+        .join(models.Course_semester_program, models.Course_semester_program.course_id == models.Course.course_id)
+        .join(models.Semester, models.Semester.semester_id == models.Course_semester_program.semester_id)
+        .filter(models.Course_semester_program.program_id == New_student.program_id).filter(models.Course_semester_program.semester_id != student.semester_id)
+        .all()
+    )
+    not_enrolled_courses = [
+        request_models.StudentCourseResponse(
+            course_id=course.Course.course_id,
+            course_name=course.Course.course_name,
+            year=course.Semester.year,
+            enrollment_key=course.Course.enrollment_key,
+            semester=course.Semester.semester,
+            course_image = course.Course.course_image,
+        )
+        for course in available_courses if course.Course.course_id not in enrolled_course_ids
+    ]
+
+    if not not_enrolled_courses:
+        raise HTTPException(status_code=404, detail="No available courses found for this student")
+
+    return not_enrolled_courses
+
+
+
+#Enrolling students in course
+@app.post("/student/course_enrollment/{course_id}/{student_id}")
+def get_course(course_id:UUID, student_id:UUID,request:Student_enrolled_course, db:db_dependency):
+    course = db.query(models.Course).filter(models.Course.course_id == course_id).filter(models.Course.enrollment_key==request.enrollment_key).first()
+    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+      
+    if course:
+        enrolled_course=models.Student_enrolled_course(course_id= course.course_id,student_id = student.student_id, semester_id=student.semester_id)
+        db.add(enrolled_course)
+        db.commit()
+        db.refresh(enrolled_course)
+    else:
+        raise HTTPException(status_code=404, detail="Wrong enrollment key")
+    return course
+
+@app.get("/student/course_enrollment_student/{course_id}/{student_id}")
+def get_course(course_id:UUID, student_id:UUID, db:db_dependency):
+    enrolled_courses = db.query(models.Student_enrolled_course).filter(models.Student_enrolled_course.course_id == course_id).filter(models.Student_enrolled_course.student_id ==student_id).all()
+
+    return enrolled_courses
+
+@app.get("/student/check_semester/{course_id}/{student_id}")
+def check_course_in_semester(course_id: UUID, student_id: UUID, db: db_dependency):
+    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    course  = db.query(models.Course_semester_program).filter(models.Course_semester_program.semester_id == student.semester_id).filter(models.Course_semester_program.course_id == course_id).first()
+    return course
+
+#Get courses students are registered in
+@app.get("/student/all-enrolled-courses/{student_id}", response_model=List[request_models.StudentCourseResponse])
+def get_enrolled_courses(student_id: UUID, db: db_dependency):
+    enrolled_courses = (
+        db.query(models.Student_enrolled_course, models.Course, models.Semester)
+        .join(models.Course, models.Course.course_id == models.Student_enrolled_course.course_id)
+        .join(models.Semester, models.Semester.semester_id == models.Student_enrolled_course.semester_id)
+        .filter(models.Student_enrolled_course.student_id == student_id)
+        .all()
+    )
+
+    if not enrolled_courses:
+        raise HTTPException(status_code=404, detail="No enrolled courses found")
+    
+    response = []
+    for course in enrolled_courses: 
+        response.append(
+
+            request_models.StudentCourseResponse(
+                course_id=course.Course.course_id,
+                course_name=course.Course.course_name,
+                year=course.Semester.year,
+                enrollment_key=course.Course.enrollment_key,
+                semester=course.Semester.semester,
+                course_image = course.Course.course_image,
+            )
+        )
+
+    return response
+
+#admin announcement
+@app.get("/student/admin-announcements", response_model=List[request_models.AdminAnnouncements])
+def get_enrolled_courses(db: db_dependency):
+    annoucements = (
+        db.query(models.AdminAnnouncement, models.Admin)
+        .join(models.Admin, models.Admin.admin_id == models.AdminAnnouncement.admin_id)
+        .all()
+    )
+
+    if not annoucements:
+        raise HTTPException(status_code=404, detail="Courses not found for this lecturer")
+    
+    response = []
+    for annnoucement in annoucements: 
+        response.append(
+            request_models.AdminAnnouncements(
+                admin_id=annnoucement.Admin.admin_id,
+                admin_name=annnoucement.Admin.admin_name,
+                title=annnoucement.AdminAnnouncement.title,
+                description=annnoucement.AdminAnnouncement.description,
+                admin_image="/dashboard/announcements/user.jpg"
+            )
+        )
+
+    return response
+
+#edit Image
+@app.put('/edit-student-image/{student_id}')
+def edit_student_image(student_id: UUID, new_image: request_models.EditStudentImage, db: db_dependency):
+    student = db.query(models.Student).filter(models.Student.student_id == student_id).first()
+    if student is None:
+        raise HTTPException(status_code=404, detail="Lecturer not found")
+    
+    student.image_path = new_image.lecturer_image
+    db.commit()
+    db.refresh(student)
+    return student
+
+#go to quiz
+
+@app.get('/student/quiz/{quiz_id}',response_model=request_models.requestQuiz)
+def get_quiz(quiz_id: UUID, db: db_dependency):
+    quiz = db.query(models.Quiz).filter(models.Quiz.quiz_id == quiz_id).first()
+    if quiz is None:
+        raise HTTPException(status_code=404, detail="Lecturer not found")
+    quizResponse=request_models.requestQuiz(
+        quiz_id=quiz.quiz_id,
+        quiz_name=quiz.quiz_name,
+        quiz_duration=quiz.quiz_duration,
+        quiz_total_marks=quiz.quiz_total_marks,
+        quiz_description=quiz.quiz_description,
+        quiz_password=quiz.quiz_password,
+        quiz_no_of_questions=quiz.quiz_no_of_questions,
+        is_enabled=quiz.is_enabled,
+        attempts=quiz.attempts,
+    )
+
+    return quizResponse
+    
+@app.post('/student/quiz/attempt/{course_id}/{quiz_id}/{student_id}')
+def attempt_quiz(course_id:UUID,quiz_id:UUID,student_id:UUID, request:request_models.attemptQuiz,db:db_dependency):
+    quiz=db.query(models.Quiz).filter(models.Quiz.quiz_id==quiz_id).filter(models.Quiz.quiz_password == request.quiz_password).first()
+    if not quiz:
+        raise HTTPException(status_code=404, detail="No quiz found")
+    attempt_quiz=models.StudentAttempts(student_id = student_id, quiz_id = quiz.quiz_id,course_id = course_id,is_doing=True)
+    mcq_questions = (db.query(models.Quiz, models.Question)
+                 .join(models.Question, models.Question.quiz_id == models.Quiz.quiz_id)
+                 .filter(models.Quiz.quiz_id == quiz_id)).all()
+    db.add(attempt_quiz)
+    db.commit()
+    db.refresh(attempt_quiz)
+
+    for mcq in mcq_questions: 
+        if(mcq.Question.question_type == "written"):
+            written_quiz= models.StudentWrittenAnswers(student_id=student_id,quiz_id = quiz_id,course_id = course_id,question_id=mcq.Question.question_id)            
+            db.add(written_quiz)
+            db.commit()
+            db.refresh(written_quiz)
+        else:
+            msq_quiz = models.StudentMCQAnswers(student_id=student_id,quiz_id=quiz_id,course_id=course_id,question_id =mcq.Question.question_id)
+            db.add(msq_quiz)
+            db.commit()
+            db.refresh(msq_quiz)
+
+@app.get('/student/quiz/questions/{quiz_id}',response_model=List[request_models.StudentQuestion])
+def get_questions(quiz_id:UUID,db:db_dependency):
+    questions = db.query(models.Question).filter(models.Question.quiz_id==quiz_id).all()
+    if not questions:
+        raise HTTPException(status_code=404, detail="No quiz found")
+    
+    response = []
+    for question in questions: 
+        response.append(
+            request_models.StudentQuestion(
+                questionText=question.question,
+                questionMarks=question.marks,
+                questionType=question.question_type,
+                question_id=question.question_id,
+                quiz_id=question.quiz_id,
+            )
+        )
+
+    return response
+@app.get('/student/quiz/mcq/{question_id}',response_model=List[request_models.StudentMCQAnswer])
+def get_questions(question_id:UUID,db:db_dependency):
+    answers = db.query(models.Answer).filter(models.Answer.question_id==question_id).all()
+    if not answers:
+        raise HTTPException(status_code=404, detail="No quiz found")
+    
+    response = []
+    for answer in answers: 
+        response.append(
+            request_models.StudentMCQAnswer(
+                answer_id=answer.answer_id,
+                answer=answer.answer,
+            )
+        )
+
+    return response
+
+@app.put('/student/quiz/mcq/given-answers')
+def update_answer(request:request_models.StudentGivenMCQAnswers , db: db_dependency):
+    answer = db.query(models.StudentMCQAnswers).filter(models.StudentMCQAnswers.student_id == request.student_id).filter(models.StudentMCQAnswers.course_id==request.course_id).filter(models.StudentMCQAnswers.quiz_id == request.quiz_id).filter(models.StudentMCQAnswers.question_id==request.question_id).first()
+    right_answer = db.query(models.Answer).filter(models.Answer.question_id==request.question_id).filter(models.Answer.is_correct==True).first()
+    if not answer:
+        raise HTTPException(status_code=404, detail="No answer found")
+    if request.answer_id==right_answer.answer_id:
+        question_marks =db.query(models.Question).filter(models.Question.question_id==right_answer.question_id).first()
+        answer.marks = question_marks.marks
+    answer.answer_id = request.answer_id
+    db.commit()
+    db.refresh(answer)
+    return answer
+
+@app.put('/student/quiz/written/given-answers')
+def update_answer(request:request_models.StudentGivenWrittenAnswers , db: db_dependency):
+    answer = db.query(models.StudentWrittenAnswers).filter(models.StudentWrittenAnswers.student_id == request.student_id).filter(models.StudentWrittenAnswers.course_id==request.course_id).filter(models.StudentWrittenAnswers.quiz_id == request.quiz_id).filter(models.StudentWrittenAnswers.question_id==request.question_id).first()
+
+    if not answer:
+        raise HTTPException(status_code=404, detail="No answer found")
+    answer.answer = request.answer
+    db.commit()
+    db.refresh(answer)
+    return answer
+
+
+@app.get('/student/quiz/given-answers/mcq/{student_id}/{course_id}/{quiz_id}/{question_id}', response_model=request_models.StudentSavedMcqAnswerResponse)
+def show_mcq(student_id:UUID,course_id:UUID ,quiz_id:UUID,question_id:UUID, db: db_dependency):
+    answerGiven = db.query(models.StudentMCQAnswers).filter(models.StudentMCQAnswers.student_id == student_id).filter(models.StudentMCQAnswers.course_id==course_id).filter(models.StudentMCQAnswers.quiz_id == quiz_id).filter(models.StudentMCQAnswers.question_id == question_id).first()
+
+    if answerGiven is None or answerGiven.answer_id is None:
+        quizResponse=request_models.StudentSavedMcqAnswerResponse(
+            question_id="00000000-0000-0000-0000-000000000000",
+            answer_id="00000000-0000-0000-0000-000000000000",
+            answer=""
+        )
+        return quizResponse
+    answer = (
+        db.query(models.StudentMCQAnswers, models.Answer)
+        .join(models.Answer, models.StudentMCQAnswers.question_id == models.Answer.question_id)
+        .filter(models.StudentMCQAnswers.question_id == answerGiven.question_id)
+        .first()
+    )
+
+    quizResponse=request_models.StudentSavedMcqAnswerResponse(
+        question_id=answerGiven.question_id,
+        answer_id=answerGiven.answer_id,
+        answer=answer.Answer.answer
+    )
+    return quizResponse
+
+@app.get('/student/quiz/given-answers/written/{student_id}/{course_id}/{quiz_id}/{question_id}', response_model=request_models.StudentSavedWrittenAnswerResponse)
+def show_written(student_id:UUID,course_id:UUID ,quiz_id:UUID,question_id:UUID, db: db_dependency):
+    answer = (
+        db.query(models.StudentWrittenAnswers)
+        .filter(models.StudentWrittenAnswers.question_id == question_id).filter(models.StudentWrittenAnswers.course_id==course_id).filter(models.StudentWrittenAnswers.quiz_id==quiz_id).filter(models.StudentWrittenAnswers.student_id==student_id)
+        .first()
+    )
+    if answer is None:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    quizResponse=request_models.StudentSavedWrittenAnswerResponse(
+        question_id=answer.question_id,
+        answer=answer.answer
+    )
+    return quizResponse
+@app.get('/student/student-attempts/{student_id}/{course_id}/{quiz_id}', response_model=request_models.Student_attemps)
+def attempt(student_id:UUID,course_id:UUID ,quiz_id:UUID, db: db_dependency):
+    attempt = db.query(models.StudentAttempts).filter(models.StudentAttempts.student_id==student_id).filter(models.StudentAttempts.quiz_id==quiz_id).filter(models.StudentAttempts.course_id==course_id).first()
+
+    if attempt is None:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    quizResponse=request_models.Student_attemps(
+        is_enabled=attempt.is_doing,
+    )
+    return quizResponse
+
+@app.put('/student/student-attempts/submission/{student_id}/{course_id}/{quiz_id}')
+def attempt(student_id:UUID,course_id:UUID ,quiz_id:UUID, db: db_dependency):
+    attempt = db.query(models.StudentAttempts).filter(models.StudentAttempts.student_id==student_id).filter(models.StudentAttempts.quiz_id==quiz_id).filter(models.StudentAttempts.course_id==course_id).first()
+
+    if attempt is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    attempt.mcq_marks =db.query(func.sum(models.StudentMCQAnswers.marks)).filter(
+        models.StudentMCQAnswers.student_id == student_id,
+        models.StudentMCQAnswers.quiz_id == quiz_id,
+        models.StudentMCQAnswers.course_id == course_id
+    ).scalar() or 0
+    attempt.is_doing = False
+    db.commit()
+    db.refresh(attempt)
+    return attempt
+
+@app.get('/students/download/lecturer',response_model =List[request_models.getLecturerDetails])
+def getLecturer(db:db_dependency):
+    lecturers = db.query(models.Lecturer).all()
+    if lecturers is None:
+        raise HTTPException(state_code=404,detail="Not found")
+    response = []
+    for lecturer in lecturers: 
+        response.append(
+            request_models.getLecturerDetails(
+                lecturer_name=lecturer.lecturer_name,
+                lecturer_email = lecturer.lecturer_email,
+                lecturer_phone= lecturer.lecturer_phone,
+            )
+        )
+
+    return response
+    
+
+
+
+
+
+
 
 #student portal
 #new student
