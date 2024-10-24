@@ -152,5 +152,46 @@ class getLecturerDetails(BaseModel):
     lecturer_name:str
     lecturer_email:str
     lecturer_phone:str
+class WrittenAnswers(BaseModel):
+    question_id: UUID
+    question: str 
+    answer: str 
+    marks: int
 
+class UpdateWrittenAnswersRequest(BaseModel):
+    written_answers: List[WrittenAnswers]
+
+
+##portal
+class StPorProgram(BaseModel):
+    program_id: UUID
+    program_name: str
+    program_description: Optional[str] = None
+    duration: str
+    program_image: Optional[str] = None
+
+class NewStudent(BaseModel):
+    name: str
+    address: str
+    email: str
+    OL_path: str
+    AL_path: str
+    payment_path: str
+    program_id: UUID
+
+class RegisterStudent(BaseModel):
+    student_id: UUID
+    receipt_path: str
+
+
+
+##admin request models
+class AdminAnnouncement(BaseModel):
+    title: str
+    description: str
+    admin_id: UUID
+
+class AdminEditAnnouncement(BaseModel):
+    title: str
+    description: str
 
