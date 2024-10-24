@@ -18,7 +18,7 @@ class Semester(Base):
     year=Column(Integer,index=True)
     status=Column(Integer,index=True)
     semester=Column(Integer,index=True)
-    program_id=Column(UUID, ForeignKey("program.program_id"),index=True) ##Changed
+    # program_id=Column(UUID, ForeignKey("program.program_id"),index=True) ##Changed
 
 class Course(Base):
     __tablename__ = 'course'
@@ -27,7 +27,7 @@ class Course(Base):
     enrollment_key=Column(String,index=True)
     course_description=Column(String,index=True)
     course_image=Column(String,index=True)
-    semester_id=Column(UUID, ForeignKey("semester.semester_id"),index=True) ##Changed
+    # semester_id=Column(UUID, ForeignKey("semester.semester_id"),index=True) ##Changed
 
 class Program(Base):
     __tablename__ = 'program'

@@ -148,4 +148,9 @@ class StudentSavedWrittenAnswerResponse(BaseModel):
 class Student_attemps(BaseModel):
     is_enabled:bool
 
+class getLecturerDetails(BaseModel):
+    lecturer_name:str
+    lecturer_email:str
+    lecturer_phone:str
+
 

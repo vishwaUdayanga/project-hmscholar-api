@@ -1568,7 +1568,23 @@ def attempt(student_id:UUID,course_id:UUID ,quiz_id:UUID, db: db_dependency):
     db.refresh(attempt)
     return attempt
 
+@app.get('/students/download/lecturer',response_model =List[request_models.getLecturerDetails])
+def getLecturer(db:db_dependency):
+    lecturers = db.query(models.Lecturer).all()
+    if lecturers is None:
+        raise HTTPException(state_code=404,detail="Not found")
+    response = []
+    for lecturer in lecturers: 
+        response.append(
+            request_models.getLecturerDetails(
+                lecturer_name=lecturer.lecturer_name,
+                lecturer_email = lecturer.lecturer_email,
+                lecturer_phone= lecturer.lecturer_phone,
+            )
+        )
 
+    return response
+    
 
 
 
