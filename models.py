@@ -198,41 +198,23 @@ class StudentMCQAnswers(Base):
     question_id =Column(UUID,ForeignKey("question.question_id"),index=True)
     answer_id= Column(UUID,ForeignKey("answer.answer_id"),index=True)
     marks = Column(Integer,index=True,default=0)
-    
 
-class AdminAnnouncement(Base):
-    __tablename__ ='admin_announcement'
-    announcement_id=Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
-    title=Column(String,index=True)
-    description=Column(String,index=True) 
-    admin_id=Column(UUID, ForeignKey("admin.admin_id"),index=True)
+# class StudentWrittenAnswers(Base):
+#     __tablename__ = 'student_written_answer'
+#     student_id = Column(UUID,ForeignKey("student.student_id"),index=True,primary_key=True)
+#     quiz_id=Column(UUID, ForeignKey("quiz.quiz_id"),index=True,primary_key=True)
+#     course_id= Column(UUID, ForeignKey("course.course_id"),index=True,primary_key=True)
+#     marks = Column(Integer,index=True)
+#     question_id =Column(UUID,ForeignKey("question.question_id"),index=True,primary_key=True)
+#     answer= Column(String,index=True)
+#     marks = Column(Integer,index=True,default=0)
 
-class StudentAttempts(Base):
-    __tablename__ = 'student_attempt'
-    id = Column(UUID(as_uuid=True),primary_key=True,index=True, default=uuid.uuid4)
-    quiz_id=Column(UUID, ForeignKey("quiz.quiz_id"),index=True)
-    course_id=Column(UUID, ForeignKey("course.course_id"),index=True)
-    is_doing = Column(Boolean,index=True,default=True)
-    student_id =Column(UUID, ForeignKey("student.student_id"),index=True)
-    mcq_marks = Column(Integer,index=True,default=0)
-    written_marks = Column(Integer,index=True,default=0)
-
-class StudentWrittenAnswers(Base):
-    __tablename__ = 'student_written_answer'
-    student_id = Column(UUID,ForeignKey("student.student_id"),index=True,primary_key=True)
-    quiz_id=Column(UUID, ForeignKey("quiz.quiz_id"),index=True,primary_key=True)
-    course_id= Column(UUID, ForeignKey("course.course_id"),index=True,primary_key=True)
-    marks = Column(Integer,index=True)
-    question_id =Column(UUID,ForeignKey("question.question_id"),index=True,primary_key=True)
-    answer= Column(String,index=True)
-    marks = Column(Integer,index=True,default=0)
-
-class StudentMCQAnswers(Base):
-    __tablename__ = 'student_mcq_answer'
-    id = Column(UUID(as_uuid=True),primary_key=True,index=True, default=uuid.uuid4)
-    student_id = Column(UUID,ForeignKey("student.student_id"),index=True)
-    quiz_id=Column(UUID, ForeignKey("quiz.quiz_id"),index=True)
-    course_id= Column(UUID, ForeignKey("course.course_id"),index=True,primary_key=True)
-    question_id =Column(UUID,ForeignKey("question.question_id"),index=True)
-    answer_id= Column(UUID,ForeignKey("answer.answer_id"),index=True)
-    marks = Column(Integer,index=True,default=0)
+# class StudentMCQAnswers(Base):
+#     __tablename__ = 'student_mcq_answer'
+#     id = Column(UUID(as_uuid=True),primary_key=True,index=True, default=uuid.uuid4)
+#     student_id = Column(UUID,ForeignKey("student.student_id"),index=True)
+#     quiz_id=Column(UUID, ForeignKey("quiz.quiz_id"),index=True)
+#     course_id= Column(UUID, ForeignKey("course.course_id"),index=True,primary_key=True)
+#     question_id =Column(UUID,ForeignKey("question.question_id"),index=True)
+#     answer_id= Column(UUID,ForeignKey("answer.answer_id"),index=True)
+#     marks = Column(Integer,index=True,default=0)
