@@ -100,15 +100,6 @@ class Program_semester_student(Base):
     semester_id=Column(UUID, ForeignKey("semester.semester_id"),index=True,primary_key=True)
     student_id=Column(UUID, ForeignKey("student.student_id"),index=True,primary_key=True)
 
-
-class AdminAnnouncement(Base):
-    __tablename__ ='admin_announcement'
-
-    announcement_id=Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
-    title=Column(String,index=True)
-    description=Column(String,index=True)
-    admin_id=Column(UUID, ForeignKey("admin.admin_id"),index=True)
-
 #Lecturer models
 
 class Lecturer(Base):

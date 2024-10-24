@@ -1044,7 +1044,6 @@ class StudentRequest(BaseModel):
 
 class CreateStudent(BaseModel):
     email: str
-    password: str
     
 
 #Admin endpoints
@@ -1272,7 +1271,6 @@ def get_student(student_id: UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Student not found")
     return CreateStudent(
         email=student.email,
-        password=student.password
     )
 
 @app.put("/admin/edit_student/{student_id}")
@@ -1282,7 +1280,6 @@ def edit_student(student_id: UUID, new_student: CreateStudent, db: Session = Dep
         raise HTTPException(status_code=404, detail="Student not found")
     
     student.email = new_student.email
-    student.password = new_student.password
     db.commit()
     db.refresh(student)
 
