@@ -44,6 +44,10 @@ class Student(BaseModel):
     password:str
     semester_id:UUID
     newStudent_id:UUID
+
+class NewStudentAdmin(BaseModel):
+    email:str
+    password:str
     
 class StudentCourseResponse(BaseModel):
     course_id: UUID

@@ -923,6 +923,8 @@ def add_announcement(new_announcement: Course_announcement, db: db_dependency):
     db.commit()
     db.refresh(db_announcement)
 
+    return db_announcement
+
 @app.get("/course/announcements/{course_id}")
 def get_announcements(course_id: UUID, db: Session = Depends(get_db)):
     announcements = db.query(models.Course_announcement).filter(models.Course_announcement.course_id == course_id).all()
@@ -1220,11 +1222,11 @@ def delete_course(course_id: UUID, db: Session = Depends(get_db)):
 
 @app.post("/admin/create_course")
 def create_course(course: CourseRequest, db: Session = Depends(get_db)):
-    course = models.Course(**course.dict())
-    db.add(course)
+    Course = models.Course(**course.dict())
+    db.add(Course)
     db.commit()
-    db.refresh(course)
-    return course
+    db.refresh(Course)
+    return Course
 
 @app.put("/admin/edit_course/{course_id}")
 def edit_course(course_id: UUID, new_course: CourseRequest, db: Session = Depends(get_db)):
@@ -1261,7 +1263,7 @@ def delete_student(student_id: UUID, db: Session = Depends(get_db)):
     return {"message": "Student deleted successfully"}
 
 @app.post("/admin/create_student")
-def create_student(student: request_models.Student, db: Session = Depends(get_db)):
+def create_student(student: request_models.NewStudentAdmin, db: Session = Depends(get_db)):
     hash_password = utils.get_password_hash(student.password)
     student_data = student.dict(exclude={"password"})
     student = models.Student(**student_data, password=hash_password)
